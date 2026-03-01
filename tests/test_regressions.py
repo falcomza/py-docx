@@ -6,16 +6,31 @@ from pathlib import Path
 
 import pytest
 
+from pydocx.breaks import set_page_layout
 from pydocx.chart_read import _resolve_workbook_for_chart as resolve_chart_read_workbook
 from pydocx.chart_update import (
     _resolve_workbook_for_chart as resolve_chart_update_workbook,
 )
 from pydocx.chart_update import _update_title, _update_worksheet
 from pydocx.errors import InvalidDocxError
-from pydocx.options import ChartData, FindOptions, ReplaceOptions, SeriesData
+from pydocx.header_footer import set_header
+from pydocx.options import (
+    ChartData,
+    FindOptions,
+    HeaderFooterContent,
+    HeaderOptions,
+    HeaderType,
+    InsertPosition,
+    PageLayoutOptions,
+    PageOrientation,
+    ParagraphOptions,
+    ReplaceOptions,
+    SeriesData,
+)
+from pydocx.paragraph import insert_paragraph
 from pydocx.read import find_text
 from pydocx.replace import replace_text
-from pydocx.updater import new_from_bytes
+from pydocx.updater import new_blank, new_from_bytes
 from pydocx.ziputils import extract_zip
 
 
@@ -149,3 +164,136 @@ def test_replace_text_respects_paragraph_vs_table_scope(tmp_path: Path) -> None:
     assert replaced == 1
     assert "Replaced outside" in updated
     assert "Target inside" in updated
+
+
+def test_set_page_layout_preserves_existing_section_properties() -> None:
+    updater = new_blank()
+    try:
+        workspace = updater.workspace
+        doc_path = workspace / "word" / "document.xml"
+        doc_path.write_text(
+            (
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                "<w:body>"
+                "<w:p><w:r><w:t>hello</w:t></w:r></w:p>"
+                '<w:sectPr><w:pgNumType w:start="3"/><w:headerReference w:type="default" r:id="rId9"/>'
+                '<w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" '
+                'w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>'
+                "</w:body></w:document>"
+            ),
+            encoding="utf-8",
+        )
+        set_page_layout(
+            workspace,
+            PageLayoutOptions(
+                page_width=11906,
+                page_height=16838,
+                orientation=PageOrientation.PORTRAIT,
+                margin_top=1000,
+                margin_right=1100,
+                margin_bottom=1200,
+                margin_left=1300,
+                margin_header=700,
+                margin_footer=800,
+                margin_gutter=0,
+            ),
+        )
+        updated = doc_path.read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    assert '<w:headerReference w:type="default" r:id="rId9"/>' in updated
+    assert '<w:pgNumType w:start="3"/>' in updated
+    assert '<w:pgSz w:w="11906" w:h="16838"/>' in updated
+    assert (
+        '<w:pgMar w:top="1000" w:right="1100" w:bottom="1200" '
+        'w:left="1300" w:header="700" w:footer="800" w:gutter="0"/>'
+    ) in updated
+
+
+def test_set_header_odd_even_writes_settings_and_not_sectpr() -> None:
+    updater = new_blank()
+    try:
+        workspace = updater.workspace
+        set_header(
+            workspace,
+            HeaderFooterContent(left_text="L"),
+            HeaderOptions(type=HeaderType.DEFAULT, different_odd_even=True),
+        )
+        doc_xml = (workspace / "word" / "document.xml").read_text(encoding="utf-8")
+        settings_xml = (workspace / "word" / "settings.xml").read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    assert "<w:evenAndOddHeaders" not in doc_xml
+    assert "<w:evenAndOddHeaders/>" in settings_xml
+
+
+def test_set_header_targets_last_section_properties() -> None:
+    updater = new_blank()
+    try:
+        workspace = updater.workspace
+        doc_path = workspace / "word" / "document.xml"
+        doc_path.write_text(
+            (
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                "<w:body>"
+                '<w:p><w:pPr><w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr></w:pPr>'
+                "<w:r><w:t>one</w:t></w:r></w:p>"
+                "<w:p><w:r><w:t>two</w:t></w:r></w:p>"
+                '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr>'
+                "</w:body></w:document>"
+            ),
+            encoding="utf-8",
+        )
+        set_header(
+            workspace,
+            HeaderFooterContent(center_text="C"),
+            HeaderOptions(type=HeaderType.DEFAULT),
+        )
+        updated = doc_path.read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    assert updated.count("<w:headerReference") == 1
+    assert updated.rfind("<w:headerReference") > updated.rfind("<w:sectPr")
+
+
+def test_new_blank_has_settings_and_styles_relationships() -> None:
+    updater = new_blank()
+    try:
+        rels_xml = (updater.workspace / "word" / "_rels" / "document.xml.rels").read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    assert 'relationships/styles" Target="styles.xml"' in rels_xml
+    assert 'relationships/settings" Target="settings.xml"' in rels_xml
+
+
+def test_insert_paragraph_anchor_matches_unescaped_text() -> None:
+    updater = new_blank()
+    try:
+        workspace = updater.workspace
+        doc_path = workspace / "word" / "document.xml"
+        doc_path.write_text(
+            (
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                "<w:body>"
+                "<w:p><w:r><w:t>A &amp; B</w:t></w:r></w:p>"
+                '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr>'
+                "</w:body></w:document>"
+            ),
+            encoding="utf-8",
+        )
+        insert_paragraph(
+            workspace,
+            ParagraphOptions(text="Inserted", position=InsertPosition.AFTER_TEXT, anchor="A & B"),
+        )
+        updated = doc_path.read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    assert "<w:t>Inserted</w:t>" in updated

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from html import unescape as html_unescape
 from pathlib import Path
 
 from .document import insert_at_body_end, insert_at_body_start
@@ -146,7 +147,7 @@ def _find_paragraph_range(doc_xml: str, anchor: str) -> tuple[int, int]:
 def _extract_paragraph_text(para_xml: str) -> str:
     parts = []
     for match in re.finditer(r"<w:t[^>]*>(.*?)</w:t>", para_xml, flags=re.DOTALL):
-        parts.append(match.group(1))
+        parts.append(html_unescape(match.group(1)))
     return "".join(parts)
 
 

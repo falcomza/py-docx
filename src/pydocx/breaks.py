@@ -7,6 +7,10 @@ from pathlib import Path
 from .document import insert_at_body_end, insert_at_body_start
 from .options import BreakOptions, InsertPosition, PageLayoutOptions, PageOrientation, SectionBreakType
 
+_PGSZ_RE = re.compile(r"<w:pgSz\b[^>]*/>")
+_PGMAR_RE = re.compile(r"<w:pgMar\b[^>]*/>")
+_COLS_RE = re.compile(r"<w:cols\b[^>]*/>")
+
 
 def insert_page_break(workspace: Path, opts: BreakOptions) -> None:
     page_break_xml = _page_break_xml()
@@ -40,7 +44,7 @@ def set_page_layout(workspace: Path, layout: PageLayoutOptions) -> None:
     if sect_end == -1:
         raise ValueError("malformed section properties")
     sect_end += len("</w:sectPr>")
-    sect_xml = _section_properties_xml(layout)
+    sect_xml = _merge_section_layout(doc_xml[sect_start:sect_end], layout)
     updated = doc_xml[:sect_start] + sect_xml + doc_xml[sect_end:]
     doc_path.write_text(updated, encoding="utf-8")
 
@@ -71,6 +75,32 @@ def _section_properties_xml(layout: PageLayoutOptions, break_type: SectionBreakT
     sect.append('<w:cols w:space="720"/>')
     sect.append("</w:sectPr>")
     return "".join(sect)
+
+
+def _merge_section_layout(sectpr_xml: str, layout: PageLayoutOptions) -> str:
+    orient_attr = ""
+    if layout.orientation == PageOrientation.LANDSCAPE:
+        orient_attr = ' w:orient="landscape"'
+
+    pg_sz = f'<w:pgSz w:w="{layout.page_width}" w:h="{layout.page_height}"{orient_attr}/>'
+    pg_mar = (
+        f'<w:pgMar w:top="{layout.margin_top}" w:right="{layout.margin_right}" '
+        f'w:bottom="{layout.margin_bottom}" w:left="{layout.margin_left}" '
+        f'w:header="{layout.margin_header}" w:footer="{layout.margin_footer}" '
+        f'w:gutter="{layout.margin_gutter}"/>'
+    )
+    cols = '<w:cols w:space="720"/>'
+
+    merged = _upsert_singleton_tag(sectpr_xml, _PGSZ_RE, pg_sz)
+    merged = _upsert_singleton_tag(merged, _PGMAR_RE, pg_mar)
+    merged = _upsert_singleton_tag(merged, _COLS_RE, cols)
+    return merged
+
+
+def _upsert_singleton_tag(sectpr_xml: str, pattern: re.Pattern[str], replacement: str) -> str:
+    if pattern.search(sectpr_xml):
+        return pattern.sub(replacement, sectpr_xml, count=1)
+    return sectpr_xml.replace("</w:sectPr>", replacement + "</w:sectPr>", 1)
 
 
 def _section_type_xml(break_type: SectionBreakType) -> str:
