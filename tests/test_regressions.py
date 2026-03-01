@@ -65,7 +65,7 @@ def test_update_worksheet_replaces_sheet_data_and_dimension() -> None:
 
     assert "OLD" not in updated
     assert '<dimension ref="A1:B3"/>' in updated
-    assert "<sheetData><row r=\"1\">" in updated
+    assert '<sheetData><row r="1">' in updated
     assert "Revenue" in updated
 
 
