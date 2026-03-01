@@ -12,7 +12,7 @@ from pydocx.chart_update import (
     _resolve_workbook_for_chart as resolve_chart_update_workbook,
 )
 from pydocx.chart_update import _update_title, _update_worksheet
-from pydocx.errors import InvalidDocxError
+from pydocx.errors import InvalidDocxError, InvalidPackageError
 from pydocx.header_footer import set_header
 from pydocx.options import (
     ChartData,
@@ -297,3 +297,102 @@ def test_insert_paragraph_anchor_matches_unescaped_text() -> None:
         updater.cleanup()
 
     assert "<w:t>Inserted</w:t>" in updated
+
+
+def test_save_rejects_dangling_relationship_target(tmp_path: Path) -> None:
+    updater = new_blank()
+    output = tmp_path / "out.docx"
+    try:
+        rels_path = updater.workspace / "word" / "_rels" / "document.xml.rels"
+        rels_xml = rels_path.read_text(encoding="utf-8")
+        rels_xml = rels_xml.replace(
+            "</Relationships>",
+            (
+                '<Relationship Id="rId999" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" '
+                'Target="missing-header.xml"/></Relationships>'
+            ),
+            1,
+        )
+        rels_path.write_text(rels_xml, encoding="utf-8")
+
+        with pytest.raises(InvalidPackageError, match="missing target"):
+            updater.save(output)
+    finally:
+        updater.cleanup()
+
+
+def test_set_header_with_section_index_targets_first_section() -> None:
+    updater = new_blank()
+    try:
+        workspace = updater.workspace
+        doc_path = workspace / "word" / "document.xml"
+        doc_path.write_text(
+            (
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                "<w:body>"
+                '<w:p><w:pPr><w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr></w:pPr>'
+                "<w:r><w:t>one</w:t></w:r></w:p>"
+                "<w:p><w:r><w:t>two</w:t></w:r></w:p>"
+                '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr>'
+                "</w:body></w:document>"
+            ),
+            encoding="utf-8",
+        )
+        set_header(
+            workspace,
+            HeaderFooterContent(center_text="C"),
+            HeaderOptions(type=HeaderType.DEFAULT),
+            section_index=0,
+        )
+        updated = doc_path.read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    first_sectpr_end = updated.find("</w:sectPr>")
+    header_ref_pos = updated.find("<w:headerReference")
+    assert header_ref_pos != -1
+    assert header_ref_pos < first_sectpr_end
+
+
+def test_set_page_layout_with_section_index_targets_first_section() -> None:
+    updater = new_blank()
+    try:
+        workspace = updater.workspace
+        doc_path = workspace / "word" / "document.xml"
+        doc_path.write_text(
+            (
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                "<w:body>"
+                '<w:p><w:pPr><w:sectPr><w:pgSz w:w="12240" w:h="15840"/></w:sectPr></w:pPr>'
+                "<w:r><w:t>one</w:t></w:r></w:p>"
+                "<w:p><w:r><w:t>two</w:t></w:r></w:p>"
+                '<w:sectPr><w:pgSz w:w="12000" w:h="15000"/></w:sectPr>'
+                "</w:body></w:document>"
+            ),
+            encoding="utf-8",
+        )
+        set_page_layout(
+            workspace,
+            PageLayoutOptions(
+                page_width=11111,
+                page_height=22222,
+                orientation=PageOrientation.PORTRAIT,
+                margin_top=1000,
+                margin_right=1000,
+                margin_bottom=1000,
+                margin_left=1000,
+                margin_header=700,
+                margin_footer=700,
+                margin_gutter=0,
+            ),
+            section_index=0,
+        )
+        updated = doc_path.read_text(encoding="utf-8")
+    finally:
+        updater.cleanup()
+
+    assert '<w:pgSz w:w="11111" w:h="22222"/>' in updated
+    assert '<w:pgSz w:w="12000" w:h="15000"/>' in updated

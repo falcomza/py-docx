@@ -197,9 +197,10 @@ u.insert_image(ImageOptions(
 
 ## Headers & Footers
 
-### `set_header(content: HeaderFooterContent, opts: HeaderOptions) -> None`
+### `set_header(content: HeaderFooterContent, opts: HeaderOptions, section_index: int = -1) -> None`
 
 Set the document header. Content is laid out in a three-column table (left, center, right).
+`section_index=-1` targets the last section; use `0` for the first section.
 
 ```python
 u.set_header(
@@ -208,9 +209,10 @@ u.set_header(
 )
 ```
 
-### `set_footer(content: HeaderFooterContent, opts: FooterOptions) -> None`
+### `set_footer(content: HeaderFooterContent, opts: FooterOptions, section_index: int = -1) -> None`
 
 Set the document footer with the same three-column layout.
+`section_index=-1` targets the last section; use `0` for the first section.
 
 ---
 
@@ -258,9 +260,10 @@ u.insert_section_break(BreakOptions(
 ))
 ```
 
-### `set_page_layout(layout: PageLayoutOptions) -> None`
+### `set_page_layout(layout: PageLayoutOptions, section_index: int = -1) -> None`
 
-Set the page size, orientation, and margins for the document's last section.
+Set page size, orientation, and margins for a specific section.
+`section_index=-1` targets the last section; use `0` for the first section.
 
 **Preset layout functions:**
 

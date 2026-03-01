@@ -26,12 +26,12 @@ def insert_section_break(workspace: Path, opts: BreakOptions) -> None:
         set_page_layout(workspace, opts.page_layout)
 
 
-def set_page_layout(workspace: Path, layout: PageLayoutOptions) -> None:
+def set_page_layout(workspace: Path, layout: PageLayoutOptions, section_index: int = -1) -> None:
     doc_path = workspace / "word" / "document.xml"
     doc_xml = doc_path.read_text(encoding="utf-8")
 
-    sect_start = doc_xml.rfind("<w:sectPr")
-    if sect_start == -1:
+    matches = list(re.finditer(r"<w:sectPr[^>]*>.*?</w:sectPr>", doc_xml, flags=re.DOTALL))
+    if not matches:
         body_end = doc_xml.rfind("</w:body>")
         if body_end == -1:
             raise ValueError("document body not found")
@@ -40,12 +40,9 @@ def set_page_layout(workspace: Path, layout: PageLayoutOptions) -> None:
         doc_path.write_text(updated, encoding="utf-8")
         return
 
-    sect_end = doc_xml.find("</w:sectPr>", sect_start)
-    if sect_end == -1:
-        raise ValueError("malformed section properties")
-    sect_end += len("</w:sectPr>")
-    sect_xml = _merge_section_layout(doc_xml[sect_start:sect_end], layout)
-    updated = doc_xml[:sect_start] + sect_xml + doc_xml[sect_end:]
+    selected = _resolve_section_index(matches, section_index)
+    sect_xml = _merge_section_layout(selected.group(0), layout)
+    updated = doc_xml[: selected.start()] + sect_xml + doc_xml[selected.end() :]
     doc_path.write_text(updated, encoding="utf-8")
 
 
@@ -101,6 +98,14 @@ def _upsert_singleton_tag(sectpr_xml: str, pattern: re.Pattern[str], replacement
     if pattern.search(sectpr_xml):
         return pattern.sub(replacement, sectpr_xml, count=1)
     return sectpr_xml.replace("</w:sectPr>", replacement + "</w:sectPr>", 1)
+
+
+def _resolve_section_index(matches: list[re.Match[str]], section_index: int) -> re.Match[str]:
+    if section_index < 0:
+        return matches[-1]
+    if section_index >= len(matches):
+        raise ValueError(f"section_index out of range: {section_index}; document has {len(matches)} sections")
+    return matches[section_index]
 
 
 def _section_type_xml(break_type: SectionBreakType) -> str:

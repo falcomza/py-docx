@@ -11,7 +11,7 @@ _SECTPR_RE = re.compile(r"<w:sectPr[^>]*>.*?</w:sectPr>", re.DOTALL)
 _EVEN_ODD_RE = re.compile(r"<w:evenAndOddHeaders[^>]*/>")
 
 
-def set_header(workspace: Path, content: HeaderFooterContent, opts: HeaderOptions) -> None:
+def set_header(workspace: Path, content: HeaderFooterContent, opts: HeaderOptions, section_index: int = -1) -> None:
     filename = _header_filename(opts.type)
     header_path = workspace / "word" / filename
     header_xml = _generate_header_footer_xml(content, is_header=True)
@@ -19,14 +19,14 @@ def set_header(workspace: Path, content: HeaderFooterContent, opts: HeaderOption
 
     rel_id = _add_header_footer_relationship(workspace, filename, "header")
     _update_document_for_header_footer(
-        workspace, opts.type.value, "header", rel_id, opts.different_first, opts.different_odd_even
+        workspace, opts.type.value, "header", rel_id, opts.different_first, opts.different_odd_even, section_index
     )
     if opts.different_odd_even:
         _set_even_and_odd_headers_setting(workspace, enabled=True)
     _add_header_footer_content_type(workspace, filename, "header")
 
 
-def set_footer(workspace: Path, content: HeaderFooterContent, opts: FooterOptions) -> None:
+def set_footer(workspace: Path, content: HeaderFooterContent, opts: FooterOptions, section_index: int = -1) -> None:
     filename = _footer_filename(opts.type)
     footer_path = workspace / "word" / filename
     footer_xml = _generate_header_footer_xml(content, is_header=False)
@@ -34,7 +34,7 @@ def set_footer(workspace: Path, content: HeaderFooterContent, opts: FooterOption
 
     rel_id = _add_header_footer_relationship(workspace, filename, "footer")
     _update_document_for_header_footer(
-        workspace, opts.type.value, "footer", rel_id, opts.different_first, opts.different_odd_even
+        workspace, opts.type.value, "footer", rel_id, opts.different_first, opts.different_odd_even, section_index
     )
     if opts.different_odd_even:
         _set_even_and_odd_headers_setting(workspace, enabled=True)
@@ -126,13 +126,14 @@ def _update_document_for_header_footer(
     rel_id: str,
     different_first: bool,
     different_odd_even: bool,
+    section_index: int,
 ) -> None:
     doc_path = workspace / "word" / "document.xml"
     content = doc_path.read_text(encoding="utf-8")
 
     matches = list(_SECTPR_RE.finditer(content))
     if matches:
-        match = matches[-1]
+        match = _resolve_section_index(matches, section_index)
         updated_sectpr = _add_to_sectpr(match.group(0), ref_type, hdr_ftr, rel_id, different_first, different_odd_even)
         content = content[: match.start()] + updated_sectpr + content[match.end() :]
     else:
@@ -239,3 +240,11 @@ def _ensure_settings_relationship(workspace: Path) -> None:
         'Target="settings.xml"/>'
     )
     rels_path.write_text(insert_relationship(rels_xml, rel_xml), encoding="utf-8")
+
+
+def _resolve_section_index(matches: list[re.Match[str]], section_index: int) -> re.Match[str]:
+    if section_index < 0:
+        return matches[-1]
+    if section_index >= len(matches):
+        raise ValueError(f"section_index out of range: {section_index}; document has {len(matches)} sections")
+    return matches[section_index]

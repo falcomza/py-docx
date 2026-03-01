@@ -8,3 +8,7 @@ class InvalidDocxError(DocxError):
 
 class DocumentClosedError(DocxError):
     """Raised when operations are attempted after cleanup."""
+
+
+class InvalidPackageError(DocxError):
+    """Raised when the in-memory DOCX package is inconsistent."""

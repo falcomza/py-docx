@@ -53,6 +53,7 @@ from .options import (
     TrackedInsertOptions,
     WatermarkOptions,
 )
+from .package_validator import validate_workspace
 from .page_numbers import set_page_number
 from .paragraph import add_heading, add_text, insert_paragraph, insert_paragraphs
 from .properties import (
@@ -85,10 +86,12 @@ class Updater:
 
     def save(self, output_path: str | Path) -> None:
         self._ensure_open()
+        validate_workspace(self._workspace)
         create_zip_from_dir(self._workspace, output_path)
 
     def save_to_writer(self, writer: BinaryIO) -> None:
         self._ensure_open()
+        validate_workspace(self._workspace)
         tmp = Path(tempfile.mkstemp(suffix=".docx")[1])
         try:
             create_zip_from_dir(self._workspace, tmp)
@@ -168,13 +171,13 @@ class Updater:
         self._ensure_open()
         insert_image(self._workspace, opts)
 
-    def set_header(self, content: HeaderFooterContent, opts: HeaderOptions) -> None:
+    def set_header(self, content: HeaderFooterContent, opts: HeaderOptions, section_index: int = -1) -> None:
         self._ensure_open()
-        set_header(self._workspace, content, opts)
+        set_header(self._workspace, content, opts, section_index=section_index)
 
-    def set_footer(self, content: HeaderFooterContent, opts: FooterOptions) -> None:
+    def set_footer(self, content: HeaderFooterContent, opts: FooterOptions, section_index: int = -1) -> None:
         self._ensure_open()
-        set_footer(self._workspace, content, opts)
+        set_footer(self._workspace, content, opts, section_index=section_index)
 
     def set_page_number(self, opts: PageNumberOptions) -> None:
         self._ensure_open()
@@ -296,9 +299,9 @@ class Updater:
         self._ensure_open()
         insert_section_break(self._workspace, opts)
 
-    def set_page_layout(self, layout: PageLayoutOptions) -> None:
+    def set_page_layout(self, layout: PageLayoutOptions, section_index: int = -1) -> None:
         self._ensure_open()
-        set_page_layout(self._workspace, layout)
+        set_page_layout(self._workspace, layout, section_index=section_index)
 
     def set_text_watermark(self, opts: WatermarkOptions) -> None:
         self._ensure_open()
