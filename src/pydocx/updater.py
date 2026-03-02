@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -9,7 +8,11 @@ from typing import BinaryIO
 from .blank import create_blank_docx
 from .bookmark import create_bookmark, create_bookmark_with_text, wrap_text_in_bookmark
 from .breaks import insert_page_break, insert_section_break, set_page_layout
-from .captions import update_caption_by_anchor, update_caption_in_document, update_caption_in_document_with_options
+from .captions import (
+    update_caption,
+    update_caption_anchor,
+    update_caption_opts,
+)
 from .chart import insert_chart
 from .chart_read import get_chart_data
 from .chart_update import update_chart
@@ -26,6 +29,7 @@ from .options import (
     BookmarkOptions,
     BreakOptions,
     CaptionOptions,
+    CaptionPosition,
     CaptionType,
     ChartData,
     ChartOptions,
@@ -73,7 +77,7 @@ from .table_ops import merge_table_cells_horizontal, merge_table_cells_vertical,
 from .toc import insert_toc
 from .track_changes import delete_tracked_text, insert_tracked_text
 from .watermark import set_text_watermark
-from .ziputils import create_zip_from_dir, extract_zip
+from .ziputils import create_zip_from_dir, create_zip_to_writer, extract_zip
 
 
 class Updater:
@@ -94,14 +98,7 @@ class Updater:
     def save_to_writer(self, writer: BinaryIO) -> None:
         self._ensure_open()
         validate_workspace(self._workspace)
-        fd, tmp_str = tempfile.mkstemp(suffix=".docx")
-        os.close(fd)
-        tmp = Path(tmp_str)
-        try:
-            create_zip_from_dir(self._workspace, tmp)
-            writer.write(tmp.read_bytes())
-        finally:
-            tmp.unlink(missing_ok=True)
+        create_zip_to_writer(self._workspace, writer)
 
     def __enter__(self) -> Updater:
         return self
@@ -165,21 +162,19 @@ class Updater:
 
     def add_bullet_list(self, items: list[str], level: int, position: InsertPosition) -> None:
         self._ensure_open()
-        for item in items:
-            insert_paragraph(
-                self._workspace,
-                ParagraphOptions(text=item, list_type=ListType.BULLET,
-                                 list_level=level, position=position),
-            )
+        insert_paragraphs(
+            self._workspace,
+            [ParagraphOptions(text=item, list_type=ListType.BULLET,
+                              list_level=level, position=position) for item in items],
+        )
 
     def add_numbered_list(self, items: list[str], level: int, position: InsertPosition) -> None:
         self._ensure_open()
-        for item in items:
-            insert_paragraph(
-                self._workspace,
-                ParagraphOptions(text=item, list_type=ListType.NUMBERED,
-                                 list_level=level, position=position),
-            )
+        insert_paragraphs(
+            self._workspace,
+            [ParagraphOptions(text=item, list_type=ListType.NUMBERED,
+                              list_level=level, position=position) for item in items],
+        )
 
     def insert_image(self, opts: ImageOptions) -> None:
         self._ensure_open()
@@ -343,33 +338,21 @@ class Updater:
 
     def update_caption(self, caption_type: CaptionType, index: int, description: str) -> None:
         self._ensure_open()
-        doc_path = self._workspace / "word" / "document.xml"
-        doc_xml = doc_path.read_text(encoding="utf-8")
-        updated = update_caption_in_document(
-            doc_xml, caption_type, index, description)
-        doc_path.write_text(updated, encoding="utf-8")
+        update_caption(self._workspace, caption_type, index, description)
 
     def update_caption_with_options(self, caption_type: CaptionType, index: int, opts: CaptionOptions) -> None:
         self._ensure_open()
-        doc_path = self._workspace / "word" / "document.xml"
-        doc_xml = doc_path.read_text(encoding="utf-8")
-        updated = update_caption_in_document_with_options(
-            doc_xml, caption_type, index, opts)
-        doc_path.write_text(updated, encoding="utf-8")
+        update_caption_opts(self._workspace, caption_type, index, opts)
 
     def update_caption_by_anchor(
         self,
         anchor_text: str,
         caption_type: CaptionType,
         opts: CaptionOptions,
-        direction: str = "after",
+        direction: CaptionPosition = CaptionPosition.AFTER,
     ) -> None:
         self._ensure_open()
-        doc_path = self._workspace / "word" / "document.xml"
-        doc_xml = doc_path.read_text(encoding="utf-8")
-        updated = update_caption_by_anchor(
-            doc_xml, anchor_text, caption_type, opts, direction)
-        doc_path.write_text(updated, encoding="utf-8")
+        update_caption_anchor(self._workspace, anchor_text, caption_type, opts, direction)
 
     def insert_table(self, opts: TableOptions) -> None:
         self._ensure_open()
