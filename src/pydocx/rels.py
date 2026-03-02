@@ -38,7 +38,7 @@ def insert_relationship(rels_xml: str, relationship_xml: str) -> str:
 
 
 def ensure_content_type_override(content_types_xml: str, part_name: str, content_type: str) -> str:
-    if part_name in content_types_xml:
+    if f'PartName="{part_name}"' in content_types_xml:
         return content_types_xml
     marker = "</Types>"
     idx = content_types_xml.rfind(marker)

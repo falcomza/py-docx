@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -42,6 +43,7 @@ from .options import (
     HyperlinkOptions,
     ImageOptions,
     InsertPosition,
+    ListType,
     PageLayoutOptions,
     PageNumberOptions,
     ParagraphOptions,
@@ -92,12 +94,20 @@ class Updater:
     def save_to_writer(self, writer: BinaryIO) -> None:
         self._ensure_open()
         validate_workspace(self._workspace)
-        tmp = Path(tempfile.mkstemp(suffix=".docx")[1])
+        fd, tmp_str = tempfile.mkstemp(suffix=".docx")
+        os.close(fd)
+        tmp = Path(tmp_str)
         try:
             create_zip_from_dir(self._workspace, tmp)
             writer.write(tmp.read_bytes())
         finally:
             tmp.unlink(missing_ok=True)
+
+    def __enter__(self) -> Updater:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.cleanup()
 
     def cleanup(self) -> None:
         if self._closed:
@@ -141,14 +151,14 @@ class Updater:
         self._ensure_open()
         insert_paragraph(
             self._workspace,
-            ParagraphOptions(text=text, list_type="bullet", list_level=level, position=position),
+            ParagraphOptions(text=text, list_type=ListType.BULLET, list_level=level, position=position),
         )
 
     def add_numbered_item(self, text: str, level: int, position: InsertPosition) -> None:
         self._ensure_open()
         insert_paragraph(
             self._workspace,
-            ParagraphOptions(text=text, list_type="numbered", list_level=level, position=position),
+            ParagraphOptions(text=text, list_type=ListType.NUMBERED, list_level=level, position=position),
         )
 
     def add_bullet_list(self, items: list[str], level: int, position: InsertPosition) -> None:
@@ -156,7 +166,7 @@ class Updater:
         for item in items:
             insert_paragraph(
                 self._workspace,
-                ParagraphOptions(text=item, list_type="bullet", list_level=level, position=position),
+                ParagraphOptions(text=item, list_type=ListType.BULLET, list_level=level, position=position),
             )
 
     def add_numbered_list(self, items: list[str], level: int, position: InsertPosition) -> None:
@@ -164,7 +174,7 @@ class Updater:
         for item in items:
             insert_paragraph(
                 self._workspace,
-                ParagraphOptions(text=item, list_type="numbered", list_level=level, position=position),
+                ParagraphOptions(text=item, list_type=ListType.NUMBERED, list_level=level, position=position),
             )
 
     def insert_image(self, opts: ImageOptions) -> None:

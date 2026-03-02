@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .document import insert_at_body_end, insert_at_body_start
 from .options import InsertPosition, TrackedDeleteOptions, TrackedInsertOptions
+from .xmlops import write_run_text
 from .xmlutils import xml_escape
 
 _REVISION_ID_RE = re.compile(r'w:id="(\d+)"')
@@ -74,7 +75,7 @@ def _build_tracked_insert_xml(
         r_pr.append('<w:u w:val="single"/>')
     r_pr_xml = f"<w:rPr>{''.join(r_pr)}</w:rPr>" if r_pr else ""
 
-    run_xml = f"<w:r>{r_pr_xml}{_write_run_text(opts.text)}</w:r>"
+    run_xml = f"<w:r>{r_pr_xml}{write_run_text(opts.text)}</w:r>"
 
     return (
         "<w:p>"
@@ -165,32 +166,6 @@ def _convert_runs_to_deleted_with_id(
 
         pos = run_end
     return "".join(result)
-
-
-def _write_run_text(text: str) -> str:
-    parts: list[str] = []
-    start = 0
-
-    def flush(seg: str) -> None:
-        if seg == "":
-            return
-        t = "<w:t"
-        if seg.startswith(" ") or seg.endswith(" "):
-            t += ' xml:space="preserve"'
-        t += ">" + xml_escape(seg) + "</w:t>"
-        parts.append(t)
-
-    for i, ch in enumerate(text):
-        if ch == "\n":
-            flush(text[start:i])
-            parts.append("<w:br/>")
-            start = i + 1
-        elif ch == "\t":
-            flush(text[start:i])
-            parts.append("<w:tab/>")
-            start = i + 1
-    flush(text[start:])
-    return "".join(parts)
 
 
 def _insert_after_anchor(doc_xml: str, fragment: str, anchor: str) -> str:

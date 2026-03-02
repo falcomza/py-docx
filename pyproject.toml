@@ -21,6 +21,12 @@ keywords = ["docx", "openxml", "word", "documents"]
 
 [project.optional-dependencies]
 docs = ["mkdocs", "mkdocs-material"]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.4",
+    "pyright>=1.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/falcomza/py-docx"
@@ -31,6 +37,19 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pydocx = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--tb=short"
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["src"]
 
 [tool.ruff]
 target-version = "py312"

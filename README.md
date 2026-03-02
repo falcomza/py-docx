@@ -8,12 +8,18 @@ A Python 3.12+ library for programmatically manipulating Microsoft Word (DOCX) d
 
 ## Status
 
-This repository is in early scaffolding. Core IO plus **table and chart insertion (column/bar/line/pie/area/scatter)** are available now. Features will be added **one by one** while keeping a stable public API.
+All core features are implemented and stable. The library follows a **stdlib-only** design — no runtime dependencies. The public API is typed (`py.typed`, PEP 561 compliant) and every release is linted with `ruff` and type-checked with `pyright`.
 
 ## Installation
 
 ```bash
 pip install py-docx
+```
+
+For development (includes `pytest`, `ruff`, and `pyright`):
+
+```bash
+pip install -e ".[dev]"
 ```
 
 ## Documentation
@@ -32,16 +38,26 @@ make docs          # or: uvx --with mkdocs-material mkdocs serve
 
 ### Lists
 
-```python
-from pydocx import InsertPosition, new
+`ListType.BULLET` and `ListType.NUMBERED` are typed enum values (both are also accepted as plain strings for backwards compatibility).
 
-u = new("template.docx")
-try:
+```python
+from pydocx import InsertPosition, ListType, ParagraphOptions, new
+
+with new("template.docx") as u:
+    # Convenience helpers
     u.add_bullet_list(["First item", "Second item", "Third item"], 0, InsertPosition.END)
     u.add_numbered_list(["Step 1", "Step 2", "Step 3"], 0, InsertPosition.END)
+
+    # Full control via ParagraphOptions
+    u.insert_paragraph(
+        ParagraphOptions(
+            text="Custom bullet",
+            list_type=ListType.BULLET,
+            list_level=1,
+            position=InsertPosition.END,
+        )
+    )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Tables (read data)
@@ -49,8 +65,7 @@ finally:
 ```python
 from pydocx import ColumnDefinition, TableOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_table(
         TableOptions(
             columns=[ColumnDefinition("Product"), ColumnDefinition("Sales")],
@@ -59,8 +74,7 @@ try:
     )
     tables = u.get_table_text()
     print(tables[0])
-finally:
-    u.cleanup()
+    u.save("output.docx")
 ```
 
 ### Charts (read data)
@@ -68,8 +82,7 @@ finally:
 ```python
 from pydocx import ChartOptions, SeriesOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_chart(
         ChartOptions(
             title="Quarterly Revenue",
@@ -79,8 +92,7 @@ try:
     )
     data = u.get_chart_data(1)
     print(data.categories, data.series[0].values)
-finally:
-    u.cleanup()
+    u.save("output.docx")
 ```
 
 ### Charts (extended)
@@ -88,8 +100,7 @@ finally:
 ```python
 from pydocx import ChartKind, ChartOptions, DataLabelOptions, SeriesOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_chart(
         ChartOptions(
             title="Market Share",
@@ -100,8 +111,6 @@ try:
         )
     )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Watermarks
@@ -109,12 +118,9 @@ finally:
 ```python
 from pydocx import WatermarkOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.set_text_watermark(WatermarkOptions(text="CONFIDENTIAL", opacity=0.4))
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Page/section breaks and page layout
@@ -122,8 +128,7 @@ finally:
 ```python
 from pydocx import BreakOptions, InsertPosition, SectionBreakType, new, page_layout_letter_landscape
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.add_text("Page 1 content", InsertPosition.END)
     u.insert_page_break(BreakOptions(position=InsertPosition.END))
     u.add_text("Page 2 content", InsertPosition.END)
@@ -136,8 +141,6 @@ try:
     )
     u.add_text("Landscape section content", InsertPosition.END)
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Blank document creation
@@ -145,12 +148,9 @@ finally:
 ```python
 from pydocx import InsertPosition, new_blank
 
-u = new_blank()
-try:
+with new_blank() as u:
     u.add_text("Hello from a blank document.", InsertPosition.END)
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Document properties
@@ -160,8 +160,7 @@ from datetime import datetime, timezone
 
 from pydocx import AppProperties, CoreProperties, CustomProperty, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.set_core_properties(
         CoreProperties(
             title="Q4 Report",
@@ -175,8 +174,6 @@ try:
     core = u.get_core_properties()
     print(core.title, core.creator, core.revision)
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Count operations
@@ -184,14 +181,11 @@ finally:
 ```python
 from pydocx import new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     print("Paragraphs:", u.get_paragraph_count())
     print("Tables:", u.get_table_count())
     print("Images:", u.get_image_count())
     print("Charts:", u.get_chart_count())
-finally:
-    u.cleanup()
 ```
 
 ### Delete operations
@@ -199,8 +193,7 @@ finally:
 ```python
 from pydocx import DeleteOptions, InsertPosition, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.add_text("Delete me paragraph.", InsertPosition.END)
     u.add_text("Keep me paragraph.", InsertPosition.END)
     deleted = u.delete_paragraphs("Delete me", DeleteOptions(match_case=False, whole_word=False))
@@ -209,8 +202,6 @@ try:
     # u.delete_image(1)
     # u.delete_chart(1)
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Find/replace and read
@@ -218,8 +209,7 @@ finally:
 ```python
 from pydocx import FindOptions, InsertPosition, ReplaceOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.add_text("The quick brown fox jumps over the lazy dog.", InsertPosition.END)
     matches = u.find_text("quick", FindOptions(match_case=False, whole_word=True))
     for m in matches:
@@ -228,8 +218,6 @@ try:
     print("Replaced", replaced)
     all_text = u.get_text()
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Track changes
@@ -237,8 +225,7 @@ finally:
 ```python
 from pydocx import InsertPosition, TrackedDeleteOptions, TrackedInsertOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_tracked_text(
         TrackedInsertOptions(
             text="This paragraph was added with track changes.",
@@ -250,8 +237,6 @@ try:
     u.add_text("This sentence will be marked as deleted.", InsertPosition.END)
     u.delete_tracked_text(TrackedDeleteOptions(anchor="marked as deleted", author="Reviewer"))
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Comments
@@ -259,8 +244,7 @@ finally:
 ```python
 from pydocx import CommentOptions, InsertPosition, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.add_text("This section needs review.", InsertPosition.END)
     u.insert_comment(
         CommentOptions(
@@ -273,17 +257,14 @@ try:
     for comment in comments:
         print(comment.id, comment.author, comment.text)
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Captions (tables, charts, images)
 
 ```python
-from pydocx import CaptionOptions, CaptionType, CellAlignment, ImageOptions, TableOptions, ColumnDefinition, new
+from pydocx import CaptionOptions, CaptionType, CellAlignment, ColumnDefinition, ImageOptions, TableOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_table(
         TableOptions(
             columns=[ColumnDefinition("A"), ColumnDefinition("B")],
@@ -318,8 +299,6 @@ try:
         direction="after",
     )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Footnotes / Endnotes
@@ -327,14 +306,11 @@ finally:
 ```python
 from pydocx import EndnoteOptions, FootnoteOptions, InsertPosition, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.add_text("The experiment showed significant results.", InsertPosition.END)
     u.insert_footnote(FootnoteOptions(text="Based on data collected in Q3 2026.", anchor="significant results"))
     u.insert_endnote(EndnoteOptions(text="See full methodology in Appendix A.", anchor="experiment"))
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Hyperlinks & Bookmarks
@@ -342,8 +318,7 @@ finally:
 ```python
 from pydocx import BookmarkOptions, HyperlinkOptions, InsertPosition, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.create_bookmark_with_text(
         "executive_summary",
         "Executive Summary",
@@ -367,8 +342,6 @@ try:
         HyperlinkOptions(position=InsertPosition.END),
     )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Table of Contents
@@ -376,12 +349,9 @@ finally:
 ```python
 from pydocx import TOCOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_toc(TOCOptions(title="Table of Contents", outline_levels="1-3"))
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Page numbers
@@ -389,12 +359,9 @@ finally:
 ```python
 from pydocx import PageNumberFormat, PageNumberOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.set_page_number(PageNumberOptions(start=1, format=PageNumberFormat.DECIMAL))
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Images
@@ -402,12 +369,9 @@ finally:
 ```python
 from pydocx import ImageOptions, InsertPosition, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_image(ImageOptions(path="images/logo.png", width=400, position=InsertPosition.END))
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 Supported formats: PNG, JPEG, GIF, BMP. For TIFF or unknown formats, pass both `width` and `height`.
@@ -417,8 +381,7 @@ Supported formats: PNG, JPEG, GIF, BMP. For TIFF or unknown formats, pass both `
 ```python
 from pydocx import FooterOptions, HeaderFooterContent, HeaderOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.set_header(
         HeaderFooterContent(left_text="Company Name", center_text="Confidential", right_text="Feb 2026"),
         HeaderOptions(),
@@ -428,18 +391,18 @@ try:
         FooterOptions(),
     )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Paragraphs
 
+Headings support levels 1–9 (`Heading1` through `Heading9`).
+
 ```python
 from pydocx import InsertPosition, ParagraphAlignment, ParagraphOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.add_heading(1, "Executive Summary", InsertPosition.END)
+    u.add_heading(3, "Sub-section", InsertPosition.END)  # levels 1-9 supported
     u.add_text("This quarter showed strong growth.", InsertPosition.END)
     u.insert_paragraph(
         ParagraphOptions(
@@ -457,8 +420,6 @@ try:
         )
     )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ### Table styling/width/alignment
@@ -478,8 +439,7 @@ from pydocx import (
     new,
 )
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_table(
         TableOptions(
             columns=[
@@ -518,24 +478,22 @@ try:
         )
     )
     u.save("output.docx")
-finally:
-    u.cleanup()
 ```
 
 ## Quick Start
 
+`Updater` implements the context manager protocol — use `with` to ensure the temp directory is always cleaned up:
+
 ```python
 from pydocx import ChartOptions, ColumnDefinition, SeriesOptions, TableOptions, new
 
-u = new("template.docx")
-try:
+with new("template.docx") as u:
     u.insert_table(
         TableOptions(
             columns=[ColumnDefinition("Product"), ColumnDefinition("Sales")],
             rows=[["Product A", "120"], ["Product B", "98"]],
         )
     )
-
     u.insert_chart(
         ChartOptions(
             title="Quarterly Revenue",
@@ -543,7 +501,15 @@ try:
             series=[SeriesOptions("2025", [100, 120, 110, 130])],
         )
     )
+    u.save("output.docx")
+```
 
+The `try/finally` pattern also works and remains supported for backwards compatibility:
+
+```python
+u = new("template.docx")
+try:
+    u.add_text("Hello.", InsertPosition.END)
     u.save("output.docx")
 finally:
     u.cleanup()
@@ -557,8 +523,8 @@ finally:
 - [x] Charts: read chart data
 - [x] Tables: insert, update cells, merge cells
 - [x] Tables: delete/count/read operations
-- [x] Paragraphs: insert, headings, alignment, anchor-based positioning
-- [x] Paragraphs: lists (bullet/numbered) and custom styles API
+- [x] Paragraphs: insert, headings (levels 1–9), alignment, anchor-based positioning
+- [x] Paragraphs: lists (bullet/numbered) with typed `ListType` enum
 - [x] Images: insert with sizing and captions
 - [x] TOC, headers/footers, page numbers
 - [x] Captions: insert/edit with alignment/style and anchor-based edit
@@ -573,11 +539,14 @@ finally:
 - [x] Blank document creation (true NewBlank)
 - [x] Page/section breaks and page layout
 - [x] Watermarks
+- [x] Context manager protocol on `Updater` (`with new(...) as u:`)
+- [x] Typed public API with `py.typed` / PEP 561 compliance
 
 ## Requirements
 
 - Python 3.12+
-- Standard library only (no third-party dependencies)
+- Standard library only (no third-party runtime dependencies)
+- Fully typed: ships a `py.typed` marker (PEP 561) — type checkers (`pyright`, `mypy`) understand all public APIs out of the box
 
 ## How It Works
 

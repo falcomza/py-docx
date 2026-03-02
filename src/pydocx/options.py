@@ -50,6 +50,11 @@ class RowHeightRule(StrEnum):
     EXACT = "exact"
 
 
+class ListType(StrEnum):
+    BULLET = "bullet"
+    NUMBERED = "numbered"
+
+
 class ParagraphAlignment(StrEnum):
     LEFT = "left"
     CENTER = "center"
@@ -67,7 +72,7 @@ class ParagraphOptions:
     bold: bool = False
     italic: bool = False
     underline: bool = False
-    list_type: str = ""  # "bullet" or "numbered"
+    list_type: ListType | None = None
     list_level: int = 0
 
 

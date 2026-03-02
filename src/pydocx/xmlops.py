@@ -3,6 +3,33 @@ from __future__ import annotations
 from .xmlutils import xml_escape
 
 
+def write_run_text(text: str) -> str:
+    """Build OOXML run text nodes, handling spaces, newlines, and tabs."""
+    parts: list[str] = []
+    start = 0
+
+    def flush(seg: str) -> None:
+        if seg == "":
+            return
+        t = "<w:t"
+        if seg.startswith(" ") or seg.endswith(" "):
+            t += ' xml:space="preserve"'
+        t += ">" + xml_escape(seg) + "</w:t>"
+        parts.append(t)
+
+    for i, ch in enumerate(text):
+        if ch == "\n":
+            flush(text[start:i])
+            parts.append("<w:br/>")
+            start = i + 1
+        elif ch == "\t":
+            flush(text[start:i])
+            parts.append("<w:tab/>")
+            start = i + 1
+    flush(text[start:])
+    return "".join(parts)
+
+
 def find_nth_xml_block(content: str, tag: str, n: int) -> tuple[int, int]:
     open_exact = f"<{tag}>"
     open_attr = f"<{tag} "

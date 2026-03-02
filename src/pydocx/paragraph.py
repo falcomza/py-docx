@@ -6,14 +6,15 @@ from pathlib import Path
 
 from .document import insert_at_body_end, insert_at_body_start
 from .lists import ensure_numbering_xml
-from .options import InsertPosition, ParagraphOptions
+from .options import InsertPosition, ListType, ParagraphOptions
+from .xmlops import write_run_text
 from .xmlutils import xml_escape
 
 
 def insert_paragraph(workspace: Path, opts: ParagraphOptions) -> None:
     if not opts.text:
         raise ValueError("paragraph text cannot be empty")
-    if opts.list_type:
+    if opts.list_type is not None:
         ensure_numbering_xml(workspace)
 
     doc_path = workspace / "word" / "document.xml"
@@ -47,8 +48,8 @@ def insert_paragraphs(workspace: Path, paragraphs: list[ParagraphOptions]) -> No
 
 
 def add_heading(workspace: Path, level: int, text: str, position: InsertPosition) -> None:
-    if level not in (1, 2, 3):
-        raise ValueError("heading level must be 1, 2, or 3")
+    if level not in range(1, 10):
+        raise ValueError("heading level must be between 1 and 9")
     style = f"Heading{level}"
     insert_paragraph(workspace, ParagraphOptions(text=text, style=style, position=position))
 
@@ -63,9 +64,9 @@ def _build_paragraph_xml(opts: ParagraphOptions) -> str:
         p_pr += f'<w:pStyle w:val="{xml_escape(opts.style)}"/>'
     if opts.alignment:
         p_pr += f'<w:jc w:val="{opts.alignment.value}"/>'
-    if opts.list_type:
+    if opts.list_type is not None:
         level = max(0, min(opts.list_level, 8))
-        num_id = "1" if opts.list_type == "bullet" else "2"
+        num_id = "1" if opts.list_type == ListType.BULLET else "2"
         p_pr += "<w:numPr>"
         p_pr += f'<w:ilvl w:val="{level}"/>'
         p_pr += f'<w:numId w:val="{num_id}"/>'
@@ -81,34 +82,8 @@ def _build_paragraph_xml(opts: ParagraphOptions) -> str:
         r_pr.append('<w:u w:val="single"/>')
     r_pr_xml = f"<w:rPr>{''.join(r_pr)}</w:rPr>" if r_pr else ""
 
-    run_xml = "<w:r>" + r_pr_xml + _write_run_text(opts.text) + "</w:r>"
+    run_xml = "<w:r>" + r_pr_xml + write_run_text(opts.text) + "</w:r>"
     return "<w:p>" + p_pr + run_xml + "</w:p>"
-
-
-def _write_run_text(text: str) -> str:
-    parts = []
-    start = 0
-
-    def flush(seg: str) -> None:
-        if seg == "":
-            return
-        t = "<w:t"
-        if seg.startswith(" ") or seg.endswith(" "):
-            t += ' xml:space="preserve"'
-        t += ">" + xml_escape(seg) + "</w:t>"
-        parts.append(t)
-
-    for i, ch in enumerate(text):
-        if ch == "\n":
-            flush(text[start:i])
-            parts.append("<w:br/>")
-            start = i + 1
-        elif ch == "\t":
-            flush(text[start:i])
-            parts.append("<w:tab/>")
-            start = i + 1
-    flush(text[start:])
-    return "".join(parts)
 
 
 def _insert_after_anchor(doc_xml: str, para_xml: str, anchor: str) -> str:
