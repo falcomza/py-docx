@@ -151,14 +151,16 @@ class Updater:
         self._ensure_open()
         insert_paragraph(
             self._workspace,
-            ParagraphOptions(text=text, list_type=ListType.BULLET, list_level=level, position=position),
+            ParagraphOptions(text=text, list_type=ListType.BULLET,
+                             list_level=level, position=position),
         )
 
     def add_numbered_item(self, text: str, level: int, position: InsertPosition) -> None:
         self._ensure_open()
         insert_paragraph(
             self._workspace,
-            ParagraphOptions(text=text, list_type=ListType.NUMBERED, list_level=level, position=position),
+            ParagraphOptions(text=text, list_type=ListType.NUMBERED,
+                             list_level=level, position=position),
         )
 
     def add_bullet_list(self, items: list[str], level: int, position: InsertPosition) -> None:
@@ -166,7 +168,8 @@ class Updater:
         for item in items:
             insert_paragraph(
                 self._workspace,
-                ParagraphOptions(text=item, list_type=ListType.BULLET, list_level=level, position=position),
+                ParagraphOptions(text=item, list_type=ListType.BULLET,
+                                 list_level=level, position=position),
             )
 
     def add_numbered_list(self, items: list[str], level: int, position: InsertPosition) -> None:
@@ -174,7 +177,8 @@ class Updater:
         for item in items:
             insert_paragraph(
                 self._workspace,
-                ParagraphOptions(text=item, list_type=ListType.NUMBERED, list_level=level, position=position),
+                ParagraphOptions(text=item, list_type=ListType.NUMBERED,
+                                 list_level=level, position=position),
             )
 
     def insert_image(self, opts: ImageOptions) -> None:
@@ -341,14 +345,16 @@ class Updater:
         self._ensure_open()
         doc_path = self._workspace / "word" / "document.xml"
         doc_xml = doc_path.read_text(encoding="utf-8")
-        updated = update_caption_in_document(doc_xml, caption_type, index, description)
+        updated = update_caption_in_document(
+            doc_xml, caption_type, index, description)
         doc_path.write_text(updated, encoding="utf-8")
 
     def update_caption_with_options(self, caption_type: CaptionType, index: int, opts: CaptionOptions) -> None:
         self._ensure_open()
         doc_path = self._workspace / "word" / "document.xml"
         doc_xml = doc_path.read_text(encoding="utf-8")
-        updated = update_caption_in_document_with_options(doc_xml, caption_type, index, opts)
+        updated = update_caption_in_document_with_options(
+            doc_xml, caption_type, index, opts)
         doc_path.write_text(updated, encoding="utf-8")
 
     def update_caption_by_anchor(
@@ -361,7 +367,8 @@ class Updater:
         self._ensure_open()
         doc_path = self._workspace / "word" / "document.xml"
         doc_xml = doc_path.read_text(encoding="utf-8")
-        updated = update_caption_by_anchor(doc_xml, anchor_text, caption_type, opts, direction)
+        updated = update_caption_by_anchor(
+            doc_xml, anchor_text, caption_type, opts, direction)
         doc_path.write_text(updated, encoding="utf-8")
 
     def insert_table(self, opts: TableOptions) -> None:
@@ -374,11 +381,13 @@ class Updater:
 
     def merge_table_cells_horizontal(self, table_index: int, row: int, start_col: int, end_col: int) -> None:
         self._ensure_open()
-        merge_table_cells_horizontal(self._workspace, table_index, row, start_col, end_col)
+        merge_table_cells_horizontal(
+            self._workspace, table_index, row, start_col, end_col)
 
     def merge_table_cells_vertical(self, table_index: int, start_row: int, end_row: int, col: int) -> None:
         self._ensure_open()
-        merge_table_cells_vertical(self._workspace, table_index, start_row, end_row, col)
+        merge_table_cells_vertical(
+            self._workspace, table_index, start_row, end_row, col)
 
 
 def new(path: str | Path) -> Updater:

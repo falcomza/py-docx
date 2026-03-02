@@ -51,11 +51,13 @@ def add_heading(workspace: Path, level: int, text: str, position: InsertPosition
     if level not in range(1, 10):
         raise ValueError("heading level must be between 1 and 9")
     style = f"Heading{level}"
-    insert_paragraph(workspace, ParagraphOptions(text=text, style=style, position=position))
+    insert_paragraph(workspace, ParagraphOptions(
+        text=text, style=style, position=position))
 
 
 def add_text(workspace: Path, text: str, position: InsertPosition) -> None:
-    insert_paragraph(workspace, ParagraphOptions(text=text, style="Normal", position=position))
+    insert_paragraph(workspace, ParagraphOptions(
+        text=text, style="Normal", position=position))
 
 
 def _build_paragraph_xml(opts: ParagraphOptions) -> str:

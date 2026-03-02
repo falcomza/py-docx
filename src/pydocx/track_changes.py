@@ -38,7 +38,8 @@ def delete_tracked_text(workspace: Path, opts: TrackedDeleteOptions) -> None:
     doc_path = workspace / "word" / "document.xml"
     doc_xml = doc_path.read_text(encoding="utf-8")
     start_id = _next_revision_id(doc_xml)
-    updated = _mark_paragraph_as_deleted(doc_xml, opts.anchor, author, date, start_id)
+    updated = _mark_paragraph_as_deleted(
+        doc_xml, opts.anchor, author, date, start_id)
     doc_path.write_text(updated, encoding="utf-8")
 
 
@@ -119,7 +120,8 @@ def _mark_paragraph_as_deleted(
         raise ValueError(f"anchor text {anchor!r} not found in document")
     para_xml = doc_xml[para_start:para_end]
     date_str = date.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    modified = _convert_runs_to_deleted_with_id(para_xml, author, date_str, start_id)
+    modified = _convert_runs_to_deleted_with_id(
+        para_xml, author, date_str, start_id)
     return doc_xml[:para_start] + modified + doc_xml[para_end:]
 
 
@@ -154,10 +156,12 @@ def _convert_runs_to_deleted_with_id(
 
         if "<w:t" in run_content:
             del_run = run_content
-            del_run = del_run.replace("<w:t>", '<w:delText xml:space="preserve">')
+            del_run = del_run.replace(
+                "<w:t>", '<w:delText xml:space="preserve">')
             del_run = del_run.replace("<w:t ", "<w:delText ")
             del_run = del_run.replace("</w:t>", "</w:delText>")
-            result.append(f'<w:del w:id="{del_id}" w:author="{xml_escape(author)}" w:date="{date_str}">')
+            result.append(
+                f'<w:del w:id="{del_id}" w:author="{xml_escape(author)}" w:date="{date_str}">')
             result.append(del_run)
             result.append("</w:del>")
             del_id += 1

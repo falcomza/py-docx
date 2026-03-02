@@ -91,12 +91,12 @@ def replace_cell_text(tc_content: str, value: str) -> str:
         start = tc_content.find("<w:tcPr>")
         end = tc_content.find("</w:tcPr>", start)
         if end >= 0:
-            tc_pr = tc_content[start : end + len("</w:tcPr>")]
+            tc_pr = tc_content[start: end + len("</w:tcPr>")]
     elif "<w:tcPr " in tc_content:
         start = tc_content.find("<w:tcPr ")
         end = tc_content.find("</w:tcPr>", start)
         if end >= 0:
-            tc_pr = tc_content[start : end + len("</w:tcPr>")]
+            tc_pr = tc_content[start: end + len("</w:tcPr>")]
 
     p_pr = ""
     try:
@@ -106,7 +106,7 @@ def replace_cell_text(tc_content: str, value: str) -> str:
         if pp_start >= 0:
             pp_end = p_content.find("</w:pPr>", pp_start)
             if pp_end >= 0:
-                p_pr = p_content[pp_start : pp_end + len("</w:pPr>")]
+                p_pr = p_content[pp_start: pp_end + len("</w:pPr>")]
     except ValueError:
         open_tag = "<w:tc>"
         if "<w:tc " in tc_content:
