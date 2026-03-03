@@ -74,6 +74,7 @@ class ParagraphOptions:
     underline: bool = False
     list_type: ListType | None = None
     list_level: int = 0
+    restart: bool = False
 
 
 @dataclass(slots=True)

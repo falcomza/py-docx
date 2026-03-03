@@ -70,6 +70,8 @@ def _build_paragraph_xml(opts: ParagraphOptions) -> str:
         level = max(0, min(opts.list_level, 8))
         num_id = "1" if opts.list_type == ListType.BULLET else "2"
         p_pr += "<w:numPr>"
+        if opts.restart:
+            p_pr += '<w:numRestart w:val="0"/>'
         p_pr += f'<w:ilvl w:val="{level}"/>'
         p_pr += f'<w:numId w:val="{num_id}"/>'
         p_pr += "</w:numPr>"
