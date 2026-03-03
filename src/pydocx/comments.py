@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .options import Comment, CommentOptions
 from .rels import ensure_content_type_override, insert_relationship, next_relationship_id
+from .xmlops import find_paragraph_range
 from .xmlutils import xml_escape
 
 _COMMENT_ID_RE = re.compile(r'<w:comment[^>]*w:id="(\d+)"')
@@ -121,7 +122,7 @@ def _comment_entry(comment_id: int, opts: CommentOptions) -> str:
 def _insert_comment_markers(workspace: Path, anchor: str, comment_id: int) -> None:
     doc_path = workspace / "word" / "document.xml"
     doc_xml = doc_path.read_text(encoding="utf-8")
-    para_start, para_end = _find_paragraph_range(doc_xml, anchor)
+    para_start, para_end = find_paragraph_range(doc_xml, anchor)
     if para_start == -1:
         raise ValueError(f"anchor text {anchor!r} not found in document")
 
@@ -208,29 +209,3 @@ def _parse_comments(raw: str) -> list[Comment]:
     return comments
 
 
-def _find_paragraph_range(doc_xml: str, anchor: str) -> tuple[int, int]:
-    pos = 0
-    while True:
-        start = doc_xml.find("<w:p", pos)
-        if start == -1:
-            return -1, -1
-        end = doc_xml.find("</w:p>", start)
-        if end == -1:
-            return -1, -1
-        end += len("</w:p>")
-        para = doc_xml[start:end]
-        text = _extract_paragraph_text(para)
-        if anchor in text or _normalize_ws(anchor) in _normalize_ws(text):
-            return start, end
-        pos = end
-
-
-def _extract_paragraph_text(para_xml: str) -> str:
-    parts = []
-    for match in re.finditer(r"<w:t[^>]*>(.*?)</w:t>", para_xml, flags=re.DOTALL):
-        parts.append(html_unescape(match.group(1)))
-    return "".join(parts)
-
-
-def _normalize_ws(text: str) -> str:
-    return " ".join(text.split())

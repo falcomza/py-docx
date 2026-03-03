@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import zipfile
+from io import IOBase
 from pathlib import Path
+from typing import BinaryIO
 
 from .errors import InvalidDocxError
 
@@ -27,6 +29,17 @@ def create_zip_from_dir(source_dir: str | os.PathLike[str], output_path: str | o
     source = Path(source_dir)
     output = Path(output_path)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, _dirs, files in os.walk(source):
+            root_path = Path(root)
+            for name in files:
+                file_path = root_path / name
+                arcname = file_path.relative_to(source)
+                zf.write(file_path, arcname.as_posix())
+
+
+def create_zip_to_writer(source_dir: str | os.PathLike[str], writer: BinaryIO) -> None:
+    source = Path(source_dir)
+    with zipfile.ZipFile(writer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for root, _dirs, files in os.walk(source):
             root_path = Path(root)
             for name in files:

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import re
+from html import unescape as html_unescape
+
 from .xmlutils import xml_escape
+
+_PARA_TEXT_RE = re.compile(r"<w:t[^>]*>(.*?)</w:t>", re.DOTALL)
 
 
 def write_run_text(text: str) -> str:
@@ -36,31 +41,76 @@ def find_nth_xml_block(content: str, tag: str, n: int) -> tuple[int, int]:
     close_tag = f"</{tag}>"
 
     count = 0
-    remaining = content
-    offset = 0
+    pos = 0
     while True:
-        ie = remaining.find(open_exact)
-        ia = remaining.find(open_attr)
-        idx = -1
+        ie = content.find(open_exact, pos)
+        ia = content.find(open_attr, pos)
+        if ie < 0 and ia < 0:
+            raise ValueError(f"only {count} {tag} element(s) found")
         if ie >= 0 and ia >= 0:
             idx = ie if ie <= ia else ia
         elif ie >= 0:
             idx = ie
-        elif ia >= 0:
+        else:
             idx = ia
-        if idx < 0:
-            raise ValueError(f"only {count} {tag} element(s) found")
         count += 1
-        abs_start = offset + idx
-        close_idx = remaining.find(close_tag, idx)
+        close_idx = content.find(close_tag, idx)
         if close_idx < 0:
             raise ValueError(f"unclosed <{tag}>")
-        abs_end = abs_start + (close_idx - idx) + len(close_tag)
+        end = close_idx + len(close_tag)
         if count == n:
-            return abs_start, abs_end
-        advance = (close_idx - idx) + len(close_tag) + idx
-        offset += advance
-        remaining = remaining[advance:]
+            return idx, end
+        pos = end
+
+
+def extract_paragraph_text(para_xml: str) -> str:
+    return "".join(html_unescape(m.group(1)) for m in _PARA_TEXT_RE.finditer(para_xml))
+
+
+def normalize_ws(text: str) -> str:
+    return " ".join(text.split())
+
+
+def find_paragraph_range(doc_xml: str, anchor: str) -> tuple[int, int]:
+    norm_anchor = normalize_ws(anchor)
+    pos = 0
+    while True:
+        start = doc_xml.find("<w:p", pos)
+        if start == -1:
+            return -1, -1
+        end = doc_xml.find("</w:p>", start)
+        if end == -1:
+            return -1, -1
+        end += len("</w:p>")
+        text = extract_paragraph_text(doc_xml[start:end])
+        if anchor in text or norm_anchor in normalize_ws(text):
+            return start, end
+        pos = end
+
+
+def insert_after_anchor(doc_xml: str, fragment: str, anchor: str) -> str:
+    start, end = find_paragraph_range(doc_xml, anchor)
+    if start == -1:
+        raise ValueError(f"anchor text {anchor!r} not found in document")
+    return doc_xml[:end] + fragment + doc_xml[end:]
+
+
+def insert_before_anchor(doc_xml: str, fragment: str, anchor: str) -> str:
+    start, _ = find_paragraph_range(doc_xml, anchor)
+    if start == -1:
+        raise ValueError(f"anchor text {anchor!r} not found in document")
+    return doc_xml[:start] + fragment + doc_xml[start:]
+
+
+def build_rpr_xml(bold: bool, italic: bool, underline: bool) -> str:
+    parts = []
+    if bold:
+        parts.append("<w:b/>")
+    if italic:
+        parts.append("<w:i/>")
+    if underline:
+        parts.append('<w:u w:val="single"/>')
+    return f"<w:rPr>{''.join(parts)}</w:rPr>" if parts else ""
 
 
 def inject_tcpr_element(cell_content: str, element: str) -> str:

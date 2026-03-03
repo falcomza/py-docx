@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from .options import CaptionOptions, CaptionPosition, CaptionType, CellAlignment
 from .xmlutils import xml_escape
@@ -90,7 +91,7 @@ def update_caption_by_anchor(
     anchor_text: str,
     caption_type: CaptionType,
     opts: CaptionOptions,
-    direction: str = "after",
+    direction: CaptionPosition = CaptionPosition.AFTER,
 ) -> str:
     if not anchor_text:
         raise ValueError("anchor_text cannot be empty")
@@ -107,10 +108,7 @@ def update_caption_by_anchor(
     if anchor_idx == -1:
         raise ValueError(f"anchor text {anchor_text!r} not found in document")
 
-    if direction not in ("after", "before"):
-        raise ValueError("direction must be 'after' or 'before'")
-
-    if direction == "after":
+    if direction == CaptionPosition.AFTER:
         search_range = range(anchor_idx + 1, len(paragraphs))
     else:
         search_range = range(anchor_idx - 1, -1, -1)
@@ -147,3 +145,30 @@ def update_caption_in_document_with_options(
             replacement = generate_caption_xml(opts)
             return doc_xml[: match.start()] + replacement + doc_xml[match.end() :]
     raise ValueError(f"caption {caption_type.value} #{index} not found")
+
+
+def update_caption(workspace: Path, caption_type: CaptionType, index: int, description: str) -> None:
+    doc_path = workspace / "word" / "document.xml"
+    doc_xml = doc_path.read_text(encoding="utf-8")
+    updated = update_caption_in_document(doc_xml, caption_type, index, description)
+    doc_path.write_text(updated, encoding="utf-8")
+
+
+def update_caption_opts(workspace: Path, caption_type: CaptionType, index: int, opts: CaptionOptions) -> None:
+    doc_path = workspace / "word" / "document.xml"
+    doc_xml = doc_path.read_text(encoding="utf-8")
+    updated = update_caption_in_document_with_options(doc_xml, caption_type, index, opts)
+    doc_path.write_text(updated, encoding="utf-8")
+
+
+def update_caption_anchor(
+    workspace: Path,
+    anchor_text: str,
+    caption_type: CaptionType,
+    opts: CaptionOptions,
+    direction: CaptionPosition = CaptionPosition.AFTER,
+) -> None:
+    doc_path = workspace / "word" / "document.xml"
+    doc_xml = doc_path.read_text(encoding="utf-8")
+    updated = update_caption_by_anchor(doc_xml, anchor_text, caption_type, opts, direction)
+    doc_path.write_text(updated, encoding="utf-8")

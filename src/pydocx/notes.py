@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import re
-from html import unescape as html_unescape
 from pathlib import Path
 
 from .options import EndnoteOptions, FootnoteOptions
 from .rels import insert_relationship, next_relationship_id
+from .xmlops import find_paragraph_range
 from .xmlutils import xml_escape
 
 
@@ -96,7 +96,7 @@ def _note_entry(kind: str, note_id: int, text: str) -> str:
 def _insert_note_reference(workspace: Path, anchor: str, note_id: int, note_type: str) -> None:
     doc_path = workspace / "word" / "document.xml"
     raw = doc_path.read_text(encoding="utf-8")
-    start, end = _find_paragraph_range(raw, anchor)
+    start, end = find_paragraph_range(raw, anchor)
     if start == -1:
         raise ValueError(f"anchor text {anchor!r} not found in document")
     insert_pos = end - len("</w:p>")
@@ -107,40 +107,6 @@ def _insert_note_reference(workspace: Path, anchor: str, note_id: int, note_type
     updated = raw[:insert_pos] + ref + raw[insert_pos:]
     doc_path.write_text(updated, encoding="utf-8")
 
-
-def _find_paragraph_range(doc_xml: str, anchor: str) -> tuple[int, int]:
-    pos = 0
-    while True:
-        start = _find_next_paragraph_start(doc_xml, pos)
-        if start == -1:
-            return -1, -1
-        end = doc_xml.find("</w:p>", start)
-        if end == -1:
-            return -1, -1
-        end += len("</w:p>")
-        para = doc_xml[start:end]
-        text = _extract_paragraph_text(para)
-        if anchor in text or _normalize_ws(anchor) in _normalize_ws(text):
-            return start, end
-        pos = end
-
-
-def _find_next_paragraph_start(doc_xml: str, start: int) -> int:
-    idx = doc_xml.find("<w:p", start)
-    if idx == -1:
-        return -1
-    return idx
-
-
-def _extract_paragraph_text(para_xml: str) -> str:
-    out = []
-    for match in re.finditer(r"<w:t[^>]*>(.*?)</w:t>", para_xml, flags=re.DOTALL):
-        out.append(html_unescape(match.group(1)))
-    return "".join(out)
-
-
-def _normalize_ws(text: str) -> str:
-    return " ".join(text.split())
 
 
 def _next_note_id(raw: str, note_tag: str) -> int:

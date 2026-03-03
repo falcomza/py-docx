@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import re
-from html import unescape as html_unescape
 from pathlib import Path
 
 from .document import insert_at_body_end, insert_at_body_start
 from .options import BookmarkOptions, InsertPosition
+from .xmlops import insert_after_anchor, insert_before_anchor, write_run_text
 from .xmlutils import xml_escape
 
 _VALID_BOOKMARK_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*$")
@@ -84,7 +84,7 @@ def _bookmark_with_text_xml(name: str, text: str, bookmark_id: int, opts: Bookma
     p_pr = ""
     if opts.style and opts.style != "Normal":
         p_pr = f'<w:pPr><w:pStyle w:val="{xml_escape(opts.style)}"/></w:pPr>'
-    run = _write_run_text(text)
+    run = write_run_text(text)
     return (
         "<w:p>"
         f"{p_pr}"
@@ -106,11 +106,11 @@ def _insert_bookmark(workspace: Path, bookmark_xml: str, opts: BookmarkOptions) 
     elif opts.position == InsertPosition.AFTER_TEXT:
         if not opts.anchor:
             raise ValueError("anchor text required for after_text insertion")
-        updated = _insert_after_anchor(doc_xml, bookmark_xml, opts.anchor)
+        updated = insert_after_anchor(doc_xml, bookmark_xml, opts.anchor)
     elif opts.position == InsertPosition.BEFORE_TEXT:
         if not opts.anchor:
             raise ValueError("anchor text required for before_text insertion")
-        updated = _insert_before_anchor(doc_xml, bookmark_xml, opts.anchor)
+        updated = insert_before_anchor(doc_xml, bookmark_xml, opts.anchor)
     else:
         raise ValueError(f"unsupported insert position: {opts.position}")
 
@@ -144,69 +144,3 @@ def _wrap_existing_text_in_bookmark(doc_xml: str, name: str, anchor_text: str, b
     )
 
 
-def _write_run_text(text: str) -> str:
-    parts: list[str] = []
-    start = 0
-
-    def flush(seg: str) -> None:
-        if seg == "":
-            return
-        t = "<w:t"
-        if seg.startswith(" ") or seg.endswith(" "):
-            t += ' xml:space="preserve"'
-        t += ">" + xml_escape(seg) + "</w:t>"
-        parts.append(t)
-
-    for i, ch in enumerate(text):
-        if ch == "\n":
-            flush(text[start:i])
-            parts.append("<w:br/>")
-            start = i + 1
-        elif ch == "\t":
-            flush(text[start:i])
-            parts.append("<w:tab/>")
-            start = i + 1
-    flush(text[start:])
-    return "".join(parts)
-
-
-def _insert_after_anchor(doc_xml: str, fragment: str, anchor: str) -> str:
-    start, end = _find_paragraph_range(doc_xml, anchor)
-    if start == -1:
-        raise ValueError(f"anchor text {anchor!r} not found in document")
-    return doc_xml[:end] + fragment + doc_xml[end:]
-
-
-def _insert_before_anchor(doc_xml: str, fragment: str, anchor: str) -> str:
-    start, _end = _find_paragraph_range(doc_xml, anchor)
-    if start == -1:
-        raise ValueError(f"anchor text {anchor!r} not found in document")
-    return doc_xml[:start] + fragment + doc_xml[start:]
-
-
-def _find_paragraph_range(doc_xml: str, anchor: str) -> tuple[int, int]:
-    pos = 0
-    while True:
-        start = doc_xml.find("<w:p", pos)
-        if start == -1:
-            return -1, -1
-        end = doc_xml.find("</w:p>", start)
-        if end == -1:
-            return -1, -1
-        end += len("</w:p>")
-        para = doc_xml[start:end]
-        text = _extract_paragraph_text(para)
-        if anchor in text or _normalize_ws(anchor) in _normalize_ws(text):
-            return start, end
-        pos = end
-
-
-def _extract_paragraph_text(para_xml: str) -> str:
-    parts = []
-    for match in re.finditer(r"<w:t[^>]*>(.*?)</w:t>", para_xml, flags=re.DOTALL):
-        parts.append(html_unescape(match.group(1)))
-    return "".join(parts)
-
-
-def _normalize_ws(text: str) -> str:
-    return " ".join(text.split())
