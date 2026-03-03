@@ -52,7 +52,8 @@ def insert_paragraphs(workspace: Path, paragraphs: list[ParagraphOptions]) -> No
     doc_xml = doc_path.read_text(encoding="utf-8")
     for idx, opts in enumerate(paragraphs):
         if not opts.text:
-            raise ValueError(f"insert paragraph {idx} failed: paragraph text cannot be empty")
+            raise ValueError(
+                f"insert paragraph {idx} failed: paragraph text cannot be empty")
         try:
             doc_xml = _apply_paragraph(doc_xml, opts)
         except Exception as exc:
@@ -93,5 +94,3 @@ def _build_paragraph_xml(opts: ParagraphOptions) -> str:
     r_pr_xml = build_rpr_xml(opts.bold, opts.italic, opts.underline)
     run_xml = "<w:r>" + r_pr_xml + write_run_text(opts.text) + "</w:r>"
     return "<w:p>" + p_pr + run_xml + "</w:p>"
-
-
