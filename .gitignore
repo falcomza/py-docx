@@ -54,3 +54,4 @@ knowledge.md
 CLAUDE.md
 .codegraph/
 graphify-out/
+*.lock
