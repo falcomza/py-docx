@@ -24,9 +24,13 @@ py-docx lets you create and modify Word documents from Python without any third-
 - **Track Changes** — tracked insertions and deletions
 - **Comments, Footnotes, Endnotes**
 - **Hyperlinks & Bookmarks**
-- **Table of Contents**
+- **Table of Contents** — plus Table of Figures / Table of Tables
+- **Custom Styles** — add paragraph and character styles
+- **Field Updates** — force Word to recalculate PAGE, TOC, SEQ, cross-references on open
+- **Embedded Objects** — embed an `.xlsx` workbook as a clickable OLE icon
 - **Watermarks**
 - **Document Properties** — core, app, and custom metadata
+- **Templates** — open `.docx`, `.dotx`, raw bytes, or any binary stream
 
 ## Installation
 
