@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from xml.etree import ElementTree as ET
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, unescape
 
 
 def load_xml(path: str | Path) -> ET.ElementTree:
@@ -15,3 +15,7 @@ def save_xml(tree: ET.ElementTree, path: str | Path) -> None:
 
 def xml_escape(value: str) -> str:
     return escape(value, {"'": "&apos;", '"': "&quot;"})
+
+
+def xml_unescape(value: str) -> str:
+    return unescape(value, {"&apos;": "'", "&quot;": '"'})

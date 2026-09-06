@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from html import unescape as html_unescape
 from pathlib import Path
 
-from .options import DeleteOptions
+from .options import DeleteMatchMode, DeleteOptions
 
 _PARA_PATTERN = re.compile(r"(?s)<w:p[^>]*>.*?</w:p>")
 _TABLE_PATTERN = re.compile(r"(?s)<w:tbl>.*?</w:tbl>")
@@ -52,14 +53,14 @@ def delete_chart(workspace: Path, chart_index: int) -> None:
 
 
 def _delete_paragraphs_containing(doc_xml: str, text: str, opts: DeleteOptions) -> tuple[str, int]:
-    pattern = _build_search_pattern(text, opts)
+    matcher = _build_matcher(text, opts)
     count = 0
     result: list[str] = []
     last_end = 0
     for match in _PARA_PATTERN.finditer(doc_xml):
         para_xml = match.group(0)
         para_text = _extract_paragraph_plain_text(para_xml)
-        if pattern.search(para_text):
+        if (opts.max_deletions == 0 or count < opts.max_deletions) and matcher(para_text):
             result.append(doc_xml[last_end : match.start()])
             last_end = match.end()
             count += 1
@@ -78,12 +79,21 @@ def _delete_nth_pattern(doc_xml: str, pattern: re.Pattern[str], index: int, labe
     return doc_xml[: target.start()] + doc_xml[target.end() :]
 
 
-def _build_search_pattern(text: str, opts: DeleteOptions) -> re.Pattern[str]:
-    escaped = re.escape(text)
-    if opts.whole_word:
-        escaped = r"\b" + escaped + r"\b"
+def _build_matcher(text: str, opts: DeleteOptions) -> Callable[[str], bool]:
     flags = 0 if opts.match_case else re.IGNORECASE
-    return re.compile(escaped, flags)
+
+    if opts.mode == DeleteMatchMode.EXACT and not opts.whole_word:
+        pattern = re.compile(rf"\A{re.escape(text)}\Z", flags)
+        return lambda para: pattern.search(para.strip()) is not None
+
+    if opts.mode == DeleteMatchMode.REGEX:
+        body = text
+    else:
+        body = re.escape(text)
+        if opts.whole_word:
+            body = rf"\b{body}\b"
+    pattern = re.compile(body, flags)
+    return lambda para: pattern.search(para) is not None
 
 
 def _extract_paragraph_plain_text(para_xml: str) -> str:

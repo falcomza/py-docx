@@ -31,9 +31,7 @@ def _validate_content_types(workspace: Path) -> None:
     path = workspace / "[Content_Types].xml"
     root = _parse_xml(path)
     overrides = {
-        node.attrib.get("PartName", "")
-        for node in root.findall("ct:Override", _CT_NS)
-        if node.attrib.get("PartName")
+        node.attrib.get("PartName", "") for node in root.findall("ct:Override", _CT_NS) if node.attrib.get("PartName")
     }
     if "/word/document.xml" not in overrides:
         raise InvalidPackageError("[Content_Types].xml is missing override for /word/document.xml")

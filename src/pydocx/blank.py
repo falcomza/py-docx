@@ -83,7 +83,8 @@ def _styles_xml() -> str:
 def _settings_xml() -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-        '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>\n'
+        '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n'
+        "</w:settings>\n"
     )
 
 

@@ -500,3 +500,48 @@ u.set_custom_properties([CustomProperty(name="Department", value="Finance")])
 core = u.get_core_properties()
 print(core.title)  # "Q4 Report"
 ```
+
+## Styles
+
+### `add_style(defn: StyleDefinition) -> None`
+
+Add a custom paragraph or character style to `word/styles.xml` (creating the part
+and wiring its relationship/content-type if the template lacks it). Reference the
+new style by its `id` via `ParagraphOptions.style`.
+
+### `add_styles(defns: list[StyleDefinition]) -> None`
+
+Batch form of `add_style`.
+
+## Fields
+
+### `force_field_update_on_open() -> None`
+
+Make Word/LibreOffice recalculate every field code (PAGE, NUMPAGES, DATE, TOC,
+cross-references, SEQ, ...) the first time the document is opened. Injects
+`<w:updateFields w:val="1"/>` into `settings.xml` and marks header/footer field
+codes `w:dirty="true"`. Idempotent. Use this for generated documents whose field
+values are not yet computed.
+
+## Table of Figures / Tables
+
+### `insert_table_of_figures(opts: CaptionListOptions) -> None`
+### `insert_table_of_tables(opts: CaptionListOptions) -> None`
+
+Insert a `TOC \c "Figure"` (resp. `"Table"`) field listing captioned figures or
+tables.
+
+### `get_toc_entries() -> list[TOCEntry]`
+
+Parse the level + text of entries in an existing table of contents.
+
+### `update_toc() -> None`
+
+Mark TOC/caption-list fields dirty so Word recalculates them on open.
+
+## Embedded objects
+
+### `insert_embedded_object(opts: EmbeddedObjectOptions) -> None`
+
+Embed an OLE object (e.g. an `.xlsx` workbook) shown as a clickable icon;
+double-clicking it in Word opens the file in its associated application.

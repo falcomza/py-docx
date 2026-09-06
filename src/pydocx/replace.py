@@ -5,7 +5,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from .options import ReplaceOptions
-from .xmlutils import xml_escape
+from .xmlops import merge_adjacent_runs
+from .xmlutils import xml_escape, xml_unescape
 
 _TEXT_RUN_RE = re.compile(r"(<w:t(?:\s[^>]*)?>.*?</w:t>)", re.DOTALL)
 _TEXT_CONTENT_RE = re.compile(r"<w:t(?:\s[^>]*)?>(.*?)</w:t>", re.DOTALL)
@@ -68,16 +69,9 @@ def replace_text_regex(
 
 
 def _replace_in_file(path: Path, old: str, new: str, opts: ReplaceOptions, current: int) -> int:
-    xml = path.read_text(encoding="utf-8")
-    updated, replaced = _replace_in_document_xml(
-        xml=xml,
-        opts=opts,
-        current=current,
-        replacer=lambda segment, offset: _replace_text_in_xml(segment, old, new, opts, offset),
+    return _apply_to_file(
+        path, opts, current, lambda segment, offset: _replace_text_in_xml(segment, old, new, opts, offset)
     )
-    if replaced > 0:
-        path.write_text(updated, encoding="utf-8")
-    return replaced
 
 
 def _replace_regex_in_file(
@@ -87,13 +81,25 @@ def _replace_regex_in_file(
     opts: ReplaceOptions,
     current: int,
 ) -> int:
-    xml = path.read_text(encoding="utf-8")
-    updated, replaced = _replace_in_document_xml(
-        xml=xml,
-        opts=opts,
-        current=current,
-        replacer=lambda segment, offset: _replace_regex_in_xml(segment, pattern, replacement, opts, offset),
+    return _apply_to_file(
+        path, opts, current, lambda segment, offset: _replace_regex_in_xml(segment, pattern, replacement, opts, offset)
     )
+
+
+def _apply_to_file(
+    path: Path,
+    opts: ReplaceOptions,
+    current: int,
+    replacer: Callable[[str, int], tuple[str, int]],
+) -> int:
+    raw = path.read_text(encoding="utf-8")
+    updated, replaced = _replace_in_document_xml(xml=raw, opts=opts, current=current, replacer=replacer)
+    if replaced == 0:
+        # Retry against merged runs only when a plain pass found nothing — this is
+        # the case where a match is split across adjacent <w:r> runs.
+        merged = merge_adjacent_runs(raw)
+        if merged != raw:
+            updated, replaced = _replace_in_document_xml(xml=merged, opts=opts, current=current, replacer=replacer)
     if replaced > 0:
         path.write_text(updated, encoding="utf-8")
     return replaced
@@ -170,7 +176,7 @@ def _replace_text_in_xml(
         if not text_match:
             return match.group(0)
         raw_text = text_match.group(1)
-        text = _xml_unescape(raw_text)
+        text = xml_unescape(raw_text)
 
         if opts.whole_word and word_re is not None:
 
@@ -231,7 +237,7 @@ def _replace_regex_in_xml(
         if not text_match:
             return match.group(0)
         raw_text = text_match.group(1)
-        text = _xml_unescape(raw_text)
+        text = xml_unescape(raw_text)
 
         def sub(m: re.Match[str]) -> str:
             nonlocal replaced, current
@@ -248,12 +254,3 @@ def _replace_regex_in_xml(
 
     updated = _TEXT_RUN_RE.sub(repl, xml)
     return updated, replaced
-
-
-def _xml_unescape(value: str) -> str:
-    value = value.replace("&amp;", "&")
-    value = value.replace("&lt;", "<")
-    value = value.replace("&gt;", ">")
-    value = value.replace("&quot;", '"')
-    value = value.replace("&apos;", "'")
-    return value

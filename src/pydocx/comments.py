@@ -207,5 +207,3 @@ def _parse_comments(raw: str) -> list[Comment]:
                 )
             )
     return comments
-
-

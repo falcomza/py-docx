@@ -541,6 +541,15 @@ finally:
 - [x] Watermarks
 - [x] Context manager protocol on `Updater` (`with new(...) as u:`)
 - [x] Typed public API with `py.typed` / PEP 561 compliance
+- [x] Custom paragraph/character styles (`add_style`, `add_styles`)
+- [x] Force field update on open (`force_field_update_on_open`) — PAGE/NUMPAGES/TOC/SEQ/cross-refs
+- [x] OLE embedded objects (`insert_embedded_object`) — e.g. embed an `.xlsx` as an icon
+- [x] Table of Figures / Table of Tables (`insert_table_of_figures`, `insert_table_of_tables`, `get_toc_entries`, `update_toc`)
+- [x] Rich per-run paragraph formatting (font family/size/color, highlight, strike, caps)
+- [x] `DeleteOptions` match modes (contains/exact/regex) + `max_deletions`
+- [x] Caption `Equation` type
+- [x] `.dotx` template input (auto-promoted to `.docx` on open)
+- [x] Multi-level (0–8) bullet/numbered list definitions; correct numbered-list restart
 
 ## Requirements
 

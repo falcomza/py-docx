@@ -142,5 +142,3 @@ def _wrap_existing_text_in_bookmark(doc_xml: str, name: str, anchor_text: str, b
         + bookmark_end
         + doc_xml[run_end_idx:]
     )
-
-

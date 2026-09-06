@@ -3,9 +3,13 @@ from __future__ import annotations
 import re
 from html import unescape as html_unescape
 
-from .xmlutils import xml_escape
+from .xmlutils import xml_escape, xml_unescape
 
 _PARA_TEXT_RE = re.compile(r"<w:t[^>]*>(.*?)</w:t>", re.DOTALL)
+_PARA_BLOCK_RE = re.compile(r"(?s)<w:p(?:\s[^>]*)?>.*?</w:p>")
+_RUN_BLOCK_RE = re.compile(r"(?s)<w:r(?:\s[^>]*)?>.*?</w:r>")
+_RUN_RPR_RE = re.compile(r"(?s)<w:rPr>.*?</w:rPr>")
+_RUN_TEXT_RE = re.compile(r"(?s)<w:t(?:\s[^>]*)?>(.*?)</w:t>")
 
 
 def write_run_text(text: str) -> str:
@@ -102,15 +106,103 @@ def insert_before_anchor(doc_xml: str, fragment: str, anchor: str) -> str:
     return doc_xml[:start] + fragment + doc_xml[start:]
 
 
-def build_rpr_xml(bold: bool, italic: bool, underline: bool) -> str:
+def build_rpr_xml(
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    *,
+    font_family: str = "",
+    font_size: int = 0,
+    font_color: str = "",
+    strikethrough: bool = False,
+    highlight: str = "",
+    all_caps: bool = False,
+    small_caps: bool = False,
+) -> str:
+    # CT_RPr child order (ECMA-376 §17.3.2.28): rFonts, b, i, caps, smallCaps,
+    # strike, color, sz, szCs, highlight, u.
     parts = []
+    if font_family:
+        esc = xml_escape(font_family)
+        parts.append(f'<w:rFonts w:ascii="{esc}" w:hAnsi="{esc}" w:cs="{esc}"/>')
     if bold:
         parts.append("<w:b/>")
     if italic:
         parts.append("<w:i/>")
+    if all_caps:
+        parts.append("<w:caps/>")
+    if small_caps:
+        parts.append("<w:smallCaps/>")
+    if strikethrough:
+        parts.append("<w:strike/>")
+    if font_color:
+        parts.append(f'<w:color w:val="{xml_escape(font_color)}"/>')
+    if font_size > 0:
+        parts.append(f'<w:sz w:val="{font_size}"/><w:szCs w:val="{font_size}"/>')
+    if highlight:
+        parts.append(f'<w:highlight w:val="{xml_escape(highlight)}"/>')
     if underline:
         parts.append('<w:u w:val="single"/>')
     return f"<w:rPr>{''.join(parts)}</w:rPr>" if parts else ""
+
+
+def merge_adjacent_runs(xml: str) -> str:
+    """Merge consecutive <w:r> runs that share identical <w:rPr> within each
+    paragraph, so text placeholders split across runs by Word become matchable.
+    Runs separated by any markup (hyperlink/bookmark/ins boundaries) are left
+    alone.
+    """
+    return _PARA_BLOCK_RE.sub(lambda m: _merge_runs_in_paragraph(m.group(0)), xml)
+
+
+_MERGE_UNSAFE_RE = re.compile(r"<w:(?:br|tab|drawing|object|fldChar|instrText)\b")
+
+
+def _run_is_plain(run: str) -> bool:
+    return "<w:t" in run and not _MERGE_UNSAFE_RE.search(run)
+
+
+def _merge_runs_in_paragraph(para: str) -> str:
+    runs = list(_RUN_BLOCK_RE.finditer(para))
+    if len(runs) <= 1:
+        return para
+
+    replacements: list[tuple[int, int, str]] = []  # (start, end, replacement-run) for merged streaks
+    streak: list[re.Match[str]] = []
+    streak_rpr = ""
+
+    def flush() -> None:
+        if len(streak) >= 2:
+            text = "".join(xml_unescape(t) for m in streak for t in _RUN_TEXT_RE.findall(m.group(0)))
+            t_open = '<w:t xml:space="preserve">' if text != text.strip() else "<w:t>"
+            replacements.append(
+                (streak[0].start(), streak[-1].end(), f"<w:r>{streak_rpr}{t_open}{xml_escape(text)}</w:t></w:r>")
+            )
+        streak.clear()
+
+    for run in runs:
+        rpr_match = _RUN_RPR_RE.search(run.group(0))
+        rpr = rpr_match.group(0) if rpr_match else ""
+        gap = para[streak[-1].end() : run.start()] if streak else ""
+        if streak and _run_is_plain(run.group(0)) and rpr == streak_rpr and "<" not in gap and ">" not in gap:
+            streak.append(run)
+            continue
+        flush()
+        if _run_is_plain(run.group(0)):
+            streak.append(run)
+            streak_rpr = rpr
+    flush()
+
+    if not replacements:
+        return para
+    out: list[str] = []
+    pos = 0
+    for start, end, replacement in replacements:
+        out.append(para[pos:start])
+        out.append(replacement)
+        pos = end
+    out.append(para[pos:])
+    return "".join(out)
 
 
 def inject_tcpr_element(cell_content: str, element: str) -> str:
@@ -141,12 +233,12 @@ def replace_cell_text(tc_content: str, value: str) -> str:
         start = tc_content.find("<w:tcPr>")
         end = tc_content.find("</w:tcPr>", start)
         if end >= 0:
-            tc_pr = tc_content[start: end + len("</w:tcPr>")]
+            tc_pr = tc_content[start : end + len("</w:tcPr>")]
     elif "<w:tcPr " in tc_content:
         start = tc_content.find("<w:tcPr ")
         end = tc_content.find("</w:tcPr>", start)
         if end >= 0:
-            tc_pr = tc_content[start: end + len("</w:tcPr>")]
+            tc_pr = tc_content[start : end + len("</w:tcPr>")]
 
     p_pr = ""
     try:
@@ -156,7 +248,7 @@ def replace_cell_text(tc_content: str, value: str) -> str:
         if pp_start >= 0:
             pp_end = p_content.find("</w:pPr>", pp_start)
             if pp_end >= 0:
-                p_pr = p_content[pp_start: pp_end + len("</w:pPr>")]
+                p_pr = p_content[pp_start : pp_end + len("</w:pPr>")]
     except ValueError:
         open_tag = "<w:tc>"
         if "<w:tc " in tc_content:

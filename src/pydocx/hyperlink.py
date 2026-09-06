@@ -99,5 +99,3 @@ def _validate_url(url: str) -> None:
     if not parsed.scheme:
         if not (url.startswith("mailto:") or url.startswith("file:") or url.startswith("ftp:")):
             raise ValueError(f"invalid URL: {url}")
-
-

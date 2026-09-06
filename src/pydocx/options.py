@@ -75,6 +75,13 @@ class ParagraphOptions:
     list_type: ListType | None = None
     list_level: int = 0
     restart: bool = False
+    font_family: str = ""
+    font_size: int = 0  # half-points (e.g., 24 = 12pt)
+    font_color: str = ""  # hex RGB without '#'
+    strikethrough: bool = False
+    highlight: str = ""  # e.g., "yellow", "green"
+    all_caps: bool = False
+    small_caps: bool = False
 
 
 @dataclass(slots=True)
@@ -146,10 +153,18 @@ class ReplaceOptions:
     max_replacements: int = 0
 
 
+class DeleteMatchMode(StrEnum):
+    CONTAINS = "contains"
+    EXACT = "exact"
+    REGEX = "regex"
+
+
 @dataclass(slots=True)
 class DeleteOptions:
     match_case: bool = False
     whole_word: bool = False
+    mode: DeleteMatchMode = DeleteMatchMode.CONTAINS
+    max_deletions: int = 0
 
 
 @dataclass(slots=True)
@@ -341,6 +356,7 @@ class TOCOptions:
 class CaptionType(StrEnum):
     FIGURE = "Figure"
     TABLE = "Table"
+    EQUATION = "Equation"
 
 
 class CaptionPosition(StrEnum):
@@ -551,3 +567,65 @@ class TableOptions:
     row_height: int = 0
     row_height_rule: RowHeightRule = RowHeightRule.AUTO
     caption: CaptionOptions | None = None
+
+
+class StyleType(StrEnum):
+    PARAGRAPH = "paragraph"
+    CHARACTER = "character"
+
+
+@dataclass(slots=True)
+class StyleDefinition:
+    id: str
+    name: str = ""
+    type: StyleType = StyleType.PARAGRAPH
+    based_on: str = ""
+    next_style: str = ""
+    font_family: str = ""
+    font_size: int = 0  # half-points (e.g., 24 = 12pt)
+    color: str = ""  # hex RGB without '#'
+    bold: bool = False
+    italic: bool = False
+    underline: bool = False
+    strikethrough: bool = False
+    all_caps: bool = False
+    small_caps: bool = False
+    alignment: ParagraphAlignment | None = None
+    space_before: int = 0  # twips
+    space_after: int = 0  # twips
+    line_spacing: int = 0  # 240ths of a line
+    indent_left: int = 0  # twips
+    indent_right: int = 0  # twips
+    indent_first: int = 0  # twips
+    keep_next: bool = False
+    keep_lines: bool = False
+    page_break_before: bool = False
+    outline_level: int = 0  # 1-9, paragraph styles only (0 = none)
+
+
+@dataclass(slots=True)
+class EmbeddedObjectOptions:
+    file_path: str = ""
+    file_bytes: bytes = b""
+    file_name: str = ""
+    prog_id: str = "Excel.Sheet.12"
+    icon_path: str = ""
+    icon_bytes: bytes = b""
+    width_pt: int = 95
+    height_pt: int = 75
+    position: InsertPosition = InsertPosition.END
+    anchor: str = ""
+
+
+@dataclass(slots=True)
+class CaptionListOptions:
+    caption_label: str = "Figure"  # "Figure" or "Table"
+    title: str = ""
+    position: InsertPosition = InsertPosition.BEGINNING
+    update_on_open: bool = True
+
+
+@dataclass(slots=True)
+class TOCEntry:
+    level: int
+    text: str

@@ -135,6 +135,22 @@ How the table width value is interpreted.
 |---|---|
 | `FIGURE` | Figure caption (for images and charts) |
 | `TABLE` | Table caption |
+| `EQUATION` | Equation caption |
+
+### `DeleteMatchMode`
+
+| Value | Description |
+|---|---|
+| `CONTAINS` | Delete paragraphs whose text contains the target (default) |
+| `EXACT` | Delete paragraphs whose trimmed text equals the target |
+| `REGEX` | Treat the target as a regular expression |
+
+### `StyleType`
+
+| Value | Description |
+|---|---|
+| `PARAGRAPH` | Paragraph style |
+| `CHARACTER` | Character (inline run) style |
 
 ### `CaptionPosition`
 
@@ -700,3 +716,62 @@ All page size and margin constants are in **twips** (1 twip = 1/1440 inch).
 | `MARGIN_NARROW` | `720` | 0.5 inch |
 | `MARGIN_WIDE` | `2160` | 1.5 inches |
 | `MARGIN_HEADER_FOOTER_DEFAULT` | `720` | 0.5 inch |
+
+---
+
+## Dataclasses — Styles & Structure
+
+### `StyleDefinition`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `id` | `str` | required | Style id used by `ParagraphOptions.style` |
+| `name` | `str` | `""` | Display name (defaults to `id`) |
+| `type` | `StyleType` | `PARAGRAPH` | Paragraph or character style |
+| `based_on` | `str` | `""` | Parent style id |
+| `next_style` | `str` | `""` | Style for the following paragraph |
+| `font_family` / `font_size` / `color` | `str` / `int` / `str` | — | `font_size` in half-points |
+| `bold` / `italic` / `underline` / `strikethrough` / `all_caps` / `small_caps` | `bool` | `False` | Run formatting |
+| `alignment` | `ParagraphAlignment \| None` | `None` | Paragraph styles only |
+| `space_before` / `space_after` / `line_spacing` | `int` | `0` | Twips (line_spacing in 240ths) |
+| `indent_left` / `indent_right` / `indent_first` | `int` | `0` | Twips |
+| `keep_next` / `keep_lines` / `page_break_before` | `bool` | `False` | Paragraph styles only |
+| `outline_level` | `int` | `0` | 1–9 for TOC inclusion (0 = none) |
+
+### `EmbeddedObjectOptions`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `file_path` / `file_bytes` | `str` / `bytes` | — | One is required — the embedded file |
+| `file_name` | `str` | `""` | Display name |
+| `prog_id` | `str` | `"Excel.Sheet.12"` | OLE ProgID |
+| `icon_path` / `icon_bytes` | `str` / `bytes` | — | Optional icon; falls back to a built-in Excel icon |
+| `width_pt` / `height_pt` | `int` | `95` / `75` | Icon display size in points |
+| `position` / `anchor` | `InsertPosition` / `str` | `END` / `""` | Placement |
+
+### `CaptionListOptions`
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `caption_label` | `str` | `"Figure"` | `"Figure"` or `"Table"` |
+| `title` | `str` | `""` | Optional heading above the list |
+| `position` | `InsertPosition` | `BEGINNING` | `BEGINNING` or `END` |
+| `update_on_open` | `bool` | `True` | Set `<w:updateFields>` so Word builds the list on open |
+
+### `TOCEntry`
+
+| Field | Type | Description |
+|---|---|---|
+| `level` | `int` | Outline level (1-based) |
+| `text` | `str` | Entry text |
+
+### `ParagraphOptions` — added run formatting fields
+
+`font_family: str`, `font_size: int` (half-points), `font_color: str` (hex RGB),
+`strikethrough: bool`, `highlight: str`, `all_caps: bool`, `small_caps: bool`.
+`restart: bool` on a numbered item now allocates a fresh numbering instance with a
+`startOverride` so the count restarts at 1.
+
+### `DeleteOptions` — added fields
+
+`mode: DeleteMatchMode` (default `CONTAINS`), `max_deletions: int` (0 = no limit).

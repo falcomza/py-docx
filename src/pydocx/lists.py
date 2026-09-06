@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .rels import insert_relationship, next_relationship_id
+
+BULLET_ABSTRACT_ID = 1
+NUMBERED_ABSTRACT_ID = 2
+BULLET_NUM_ID = 1
+NUMBERED_NUM_ID = 2
+
+_NUM_ID_RE = re.compile(r'<w:num\s+w:numId="(\d+)"')
 
 
 def ensure_numbering_xml(workspace: Path) -> None:
@@ -13,6 +21,31 @@ def ensure_numbering_xml(workspace: Path) -> None:
     numbering_path.write_text(_numbering_xml(), encoding="utf-8")
     _add_numbering_relationship(workspace)
     _add_numbering_content_type(workspace)
+
+
+def allocate_restart_num_id(workspace: Path, level: int) -> int:
+    """Append a <w:num> that reuses the numbered abstract list but overrides the
+    given level to restart at 1, and return its new numId. This is the correct
+    OOXML mechanism for restarting numbered-list numbering (ECMA-376 §17.9.20).
+    """
+    ensure_numbering_xml(workspace)
+    level = max(0, min(level, 8))
+    numbering_path = workspace / "word" / "numbering.xml"
+    content = numbering_path.read_text(encoding="utf-8")
+
+    next_id = 1
+    for match in _NUM_ID_RE.finditer(content):
+        next_id = max(next_id, int(match.group(1)) + 1)
+
+    new_num = (
+        f'<w:num w:numId="{next_id}">'
+        f'<w:abstractNumId w:val="{NUMBERED_ABSTRACT_ID}"/>'
+        f'<w:lvlOverride w:ilvl="{level}"><w:startOverride w:val="1"/></w:lvlOverride>'
+        "</w:num>"
+    )
+    content = content.replace("</w:numbering>", new_num + "</w:numbering>", 1)
+    numbering_path.write_text(content, encoding="utf-8")
+    return next_id
 
 
 def _add_numbering_relationship(workspace: Path) -> None:
@@ -42,27 +75,49 @@ def _add_numbering_content_type(workspace: Path) -> None:
     ct_path.write_text(content, encoding="utf-8")
 
 
+# Private-use codepoints that map to bullet glyphs in Symbol / Wingdings fonts.
+_BULLET_SYMBOLS = ("\uf0b7", "o", "\uf0a7")
+_BULLET_FONTS = ("Symbol", "Courier New", "Wingdings")
+
+
+def _levels(*, numbered: bool) -> str:
+    parts = []
+    for level in range(9):
+        if numbered:
+            num_fmt = "decimal"
+            lvl_text = "".join(f"%{i}." for i in range(1, level + 2))
+            rpr = ""
+        else:
+            font = _BULLET_FONTS[level % 3]
+            num_fmt = "bullet"
+            lvl_text = _BULLET_SYMBOLS[level % 3]
+            rpr = f'<w:rPr><w:rFonts w:ascii="{font}" w:hAnsi="{font}" w:hint="default"/></w:rPr>'
+        parts.append(
+            f'<w:lvl w:ilvl="{level}">'
+            '<w:start w:val="1"/>'
+            f'<w:numFmt w:val="{num_fmt}"/>'
+            f'<w:lvlText w:val="{lvl_text}"/>'
+            '<w:lvlJc w:val="left"/>'
+            f'<w:pPr><w:ind w:left="{720 * (level + 1)}" w:hanging="360"/></w:pPr>'
+            f"{rpr}"
+            "</w:lvl>"
+        )
+    return "".join(parts)
+
+
 def _numbering_xml() -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        # Bullet abstractNum (id=1)
-        '<w:abstractNum w:abstractNumId="1">'
-        '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/>'
-        '<w:lvlText w:val="•"/><w:lvlJc w:val="left"/>'
-        '<w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>'
-        '<w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol"/></w:rPr>'
-        "</w:lvl>"
+        f'<w:abstractNum w:abstractNumId="{BULLET_ABSTRACT_ID}">'
+        '<w:multiLevelType w:val="hybridMultilevel"/>'
+        f"{_levels(numbered=False)}"
         "</w:abstractNum>"
-        # Numbered abstractNum (id=2)
-        '<w:abstractNum w:abstractNumId="2">'
-        '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/>'
-        '<w:lvlText w:val="%1."/><w:lvlJc w:val="left"/>'
-        '<w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>'
-        "</w:lvl>"
+        f'<w:abstractNum w:abstractNumId="{NUMBERED_ABSTRACT_ID}">'
+        '<w:multiLevelType w:val="hybridMultilevel"/>'
+        f"{_levels(numbered=True)}"
         "</w:abstractNum>"
-        # Num instances
-        '<w:num w:numId="1"><w:abstractNumId w:val="1"/></w:num>'
-        '<w:num w:numId="2"><w:abstractNumId w:val="2"/></w:num>'
+        f'<w:num w:numId="{BULLET_NUM_ID}"><w:abstractNumId w:val="{BULLET_ABSTRACT_ID}"/></w:num>'
+        f'<w:num w:numId="{NUMBERED_NUM_ID}"><w:abstractNumId w:val="{NUMBERED_ABSTRACT_ID}"/></w:num>'
         "</w:numbering>"
     )

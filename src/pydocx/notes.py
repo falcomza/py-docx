@@ -108,7 +108,6 @@ def _insert_note_reference(workspace: Path, anchor: str, note_id: int, note_type
     doc_path.write_text(updated, encoding="utf-8")
 
 
-
 def _next_note_id(raw: str, note_tag: str) -> int:
     matches = re.findall(rf"<w:{note_tag}[^>]*w:id=\"(\d+)\"", raw)
     max_id = 0

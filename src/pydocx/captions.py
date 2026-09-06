@@ -8,8 +8,8 @@ from .xmlutils import xml_escape
 
 
 def validate_caption(opts: CaptionOptions) -> CaptionOptions:
-    if opts.type not in (CaptionType.FIGURE, CaptionType.TABLE):
-        raise ValueError("caption type must be Figure or Table")
+    if opts.type not in (CaptionType.FIGURE, CaptionType.TABLE, CaptionType.EQUATION):
+        raise ValueError("caption type must be Figure, Table, or Equation")
     if opts.position is None:
         opts.position = CaptionPosition.BEFORE if opts.type == CaptionType.TABLE else CaptionPosition.AFTER
     if opts.position not in (CaptionPosition.BEFORE, CaptionPosition.AFTER):

@@ -6,7 +6,13 @@ from pathlib import Path
 
 from .document import insert_at_body_end, insert_at_body_start
 from .options import InsertPosition, TrackedDeleteOptions, TrackedInsertOptions
-from .xmlops import build_rpr_xml, insert_after_anchor, insert_before_anchor, write_run_text
+from .xmlops import (
+    build_rpr_xml,
+    find_paragraph_range,
+    insert_after_anchor,
+    insert_before_anchor,
+    write_run_text,
+)
 from .xmlutils import xml_escape
 
 _REVISION_ID_RE = re.compile(r'w:id="(\d+)"')
@@ -37,8 +43,7 @@ def delete_tracked_text(workspace: Path, opts: TrackedDeleteOptions) -> None:
     doc_path = workspace / "word" / "document.xml"
     doc_xml = doc_path.read_text(encoding="utf-8")
     start_id = _next_revision_id(doc_xml)
-    updated = _mark_paragraph_as_deleted(
-        doc_xml, opts.anchor, author, date, start_id)
+    updated = _mark_paragraph_as_deleted(doc_xml, opts.anchor, author, date, start_id)
     doc_path.write_text(updated, encoding="utf-8")
 
 
@@ -106,13 +111,12 @@ def _mark_paragraph_as_deleted(
     date: datetime,
     start_id: int,
 ) -> str:
-    para_start, para_end = _find_paragraph_range(doc_xml, anchor)
+    para_start, para_end = find_paragraph_range(doc_xml, anchor)
     if para_start == -1:
         raise ValueError(f"anchor text {anchor!r} not found in document")
     para_xml = doc_xml[para_start:para_end]
     date_str = date.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    modified = _convert_runs_to_deleted_with_id(
-        para_xml, author, date_str, start_id)
+    modified = _convert_runs_to_deleted_with_id(para_xml, author, date_str, start_id)
     return doc_xml[:para_start] + modified + doc_xml[para_end:]
 
 
@@ -147,12 +151,10 @@ def _convert_runs_to_deleted_with_id(
 
         if "<w:t" in run_content:
             del_run = run_content
-            del_run = del_run.replace(
-                "<w:t>", '<w:delText xml:space="preserve">')
+            del_run = del_run.replace("<w:t>", '<w:delText xml:space="preserve">')
             del_run = del_run.replace("<w:t ", "<w:delText ")
             del_run = del_run.replace("</w:t>", "</w:delText>")
-            result.append(
-                f'<w:del w:id="{del_id}" w:author="{xml_escape(author)}" w:date="{date_str}">')
+            result.append(f'<w:del w:id="{del_id}" w:author="{xml_escape(author)}" w:date="{date_str}">')
             result.append(del_run)
             result.append("</w:del>")
             del_id += 1
@@ -161,5 +163,3 @@ def _convert_runs_to_deleted_with_id(
 
         pos = run_end
     return "".join(result)
-
-

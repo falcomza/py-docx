@@ -39,7 +39,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-pydocx = ["py.typed"]
+pydocx = ["py.typed", "assets/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

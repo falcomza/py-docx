@@ -142,5 +142,3 @@ def _validate_section_type(break_type: SectionBreakType) -> None:
         SectionBreakType.ODD_PAGE,
     ):
         raise ValueError(f"invalid section break type: {break_type}")
-
-

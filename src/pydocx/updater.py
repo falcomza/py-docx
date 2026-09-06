@@ -19,6 +19,7 @@ from .chart_update import update_chart
 from .comments import get_comments, insert_comment
 from .count import get_chart_count, get_image_count, get_paragraph_count, get_table_count
 from .delete import delete_chart, delete_image, delete_paragraphs, delete_table
+from .embed import insert_embedded_object
 from .errors import DocumentClosedError
 from .header_footer import set_footer, set_header
 from .hyperlink import insert_hyperlink, insert_internal_link
@@ -28,6 +29,7 @@ from .options import (
     AppProperties,
     BookmarkOptions,
     BreakOptions,
+    CaptionListOptions,
     CaptionOptions,
     CaptionPosition,
     CaptionType,
@@ -38,6 +40,7 @@ from .options import (
     CoreProperties,
     CustomProperty,
     DeleteOptions,
+    EmbeddedObjectOptions,
     EndnoteOptions,
     FindOptions,
     FooterOptions,
@@ -52,8 +55,10 @@ from .options import (
     PageNumberOptions,
     ParagraphOptions,
     ReplaceOptions,
+    StyleDefinition,
     TableOptions,
     TextMatch,
+    TOCEntry,
     TOCOptions,
     TrackedDeleteOptions,
     TrackedInsertOptions,
@@ -71,10 +76,13 @@ from .properties import (
     set_custom_properties,
 )
 from .read import find_text, get_paragraph_text, get_table_text, get_text
+from .rels import promote_template_content_type
 from .replace import replace_text, replace_text_regex
+from .settings import force_field_update_on_open
+from .styles import add_style, add_styles
 from .table import insert_table
 from .table_ops import merge_table_cells_horizontal, merge_table_cells_vertical, update_table_cell
-from .toc import insert_toc
+from .toc import get_toc_entries, insert_table_of_figures, insert_table_of_tables, insert_toc, update_toc
 from .track_changes import delete_tracked_text, insert_tracked_text
 from .watermark import set_text_watermark
 from .ziputils import create_zip_from_dir, create_zip_to_writer, extract_zip
@@ -148,32 +156,34 @@ class Updater:
         self._ensure_open()
         insert_paragraph(
             self._workspace,
-            ParagraphOptions(text=text, list_type=ListType.BULLET,
-                             list_level=level, position=position),
+            ParagraphOptions(text=text, list_type=ListType.BULLET, list_level=level, position=position),
         )
 
     def add_numbered_item(self, text: str, level: int, position: InsertPosition) -> None:
         self._ensure_open()
         insert_paragraph(
             self._workspace,
-            ParagraphOptions(text=text, list_type=ListType.NUMBERED,
-                             list_level=level, position=position),
+            ParagraphOptions(text=text, list_type=ListType.NUMBERED, list_level=level, position=position),
         )
 
     def add_bullet_list(self, items: list[str], level: int, position: InsertPosition) -> None:
         self._ensure_open()
         insert_paragraphs(
             self._workspace,
-            [ParagraphOptions(text=item, list_type=ListType.BULLET,
-                              list_level=level, position=position) for item in items],
+            [
+                ParagraphOptions(text=item, list_type=ListType.BULLET, list_level=level, position=position)
+                for item in items
+            ],
         )
 
     def add_numbered_list(self, items: list[str], level: int, position: InsertPosition) -> None:
         self._ensure_open()
         insert_paragraphs(
             self._workspace,
-            [ParagraphOptions(text=item, list_type=ListType.NUMBERED,
-                              list_level=level, position=position) for item in items],
+            [
+                ParagraphOptions(text=item, list_type=ListType.NUMBERED, list_level=level, position=position)
+                for item in items
+            ],
         )
 
     def insert_image(self, opts: ImageOptions) -> None:
@@ -195,6 +205,38 @@ class Updater:
     def insert_toc(self, opts: TOCOptions) -> None:
         self._ensure_open()
         insert_toc(self._workspace, opts)
+
+    def insert_table_of_figures(self, opts: CaptionListOptions) -> None:
+        self._ensure_open()
+        insert_table_of_figures(self._workspace, opts)
+
+    def insert_table_of_tables(self, opts: CaptionListOptions) -> None:
+        self._ensure_open()
+        insert_table_of_tables(self._workspace, opts)
+
+    def get_toc_entries(self) -> list[TOCEntry]:
+        self._ensure_open()
+        return get_toc_entries(self._workspace)
+
+    def update_toc(self) -> None:
+        self._ensure_open()
+        update_toc(self._workspace)
+
+    def force_field_update_on_open(self) -> None:
+        self._ensure_open()
+        force_field_update_on_open(self._workspace)
+
+    def add_style(self, defn: StyleDefinition) -> None:
+        self._ensure_open()
+        add_style(self._workspace, defn)
+
+    def add_styles(self, defns: list[StyleDefinition]) -> None:
+        self._ensure_open()
+        add_styles(self._workspace, defns)
+
+    def insert_embedded_object(self, opts: EmbeddedObjectOptions) -> None:
+        self._ensure_open()
+        insert_embedded_object(self._workspace, opts)
 
     def insert_footnote(self, opts: FootnoteOptions) -> None:
         self._ensure_open()
@@ -364,18 +406,26 @@ class Updater:
 
     def merge_table_cells_horizontal(self, table_index: int, row: int, start_col: int, end_col: int) -> None:
         self._ensure_open()
-        merge_table_cells_horizontal(
-            self._workspace, table_index, row, start_col, end_col)
+        merge_table_cells_horizontal(self._workspace, table_index, row, start_col, end_col)
 
     def merge_table_cells_vertical(self, table_index: int, start_row: int, end_row: int, col: int) -> None:
         self._ensure_open()
-        merge_table_cells_vertical(
-            self._workspace, table_index, start_row, end_row, col)
+        merge_table_cells_vertical(self._workspace, table_index, start_row, end_row, col)
+
+
+def _promote_template(workspace: Path) -> None:
+    ct_path = workspace / "[Content_Types].xml"
+    if ct_path.exists():
+        content = ct_path.read_text(encoding="utf-8")
+        promoted = promote_template_content_type(content)
+        if promoted != content:
+            ct_path.write_text(promoted, encoding="utf-8")
 
 
 def new(path: str | Path) -> Updater:
     workspace = Path(tempfile.mkdtemp(prefix="pydocx_"))
     extract_zip(path, workspace)
+    _promote_template(workspace)
     return Updater(workspace)
 
 
@@ -393,6 +443,7 @@ def new_from_bytes(data: bytes) -> Updater:
         extract_zip(tmp_docx, workspace)
     finally:
         tmp_docx.unlink(missing_ok=True)
+    _promote_template(workspace)
     return Updater(workspace)
 
 

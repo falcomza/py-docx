@@ -48,6 +48,16 @@ def ensure_content_type_override(content_types_xml: str, part_name: str, content
     return content_types_xml[:idx] + override + content_types_xml[idx:]
 
 
+_TEMPLATE_MAIN_CT = "application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml"
+_DOCUMENT_MAIN_CT = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+
+
+def promote_template_content_type(content_types_xml: str) -> str:
+    """Rewrite a .dotx main-document content type to the .docx equivalent so the
+    opened template can be edited and re-saved as a normal document."""
+    return content_types_xml.replace(_TEMPLATE_MAIN_CT, _DOCUMENT_MAIN_CT)
+
+
 def ensure_default_content_type(content_types_xml: str, extension: str, content_type: str) -> str:
     ext = extension.lstrip(".")
     if f'Extension="{ext}"' in content_types_xml:
